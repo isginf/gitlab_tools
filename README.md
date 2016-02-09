@@ -5,7 +5,7 @@ A collection of tools we use to manage our Gitlab CE service at the departement 
 - backup_config.py contains needed configuration like Gitlab URL and token
 - backup-gitlab-projects.py is a tool to backup individual projects using the Gitlab REST API
 - gitlab_lib.py is the central library used by the tools
-- gitlab-project-search.py let you search for projects by name and description and dumps their meta information
+- gitlab-project-search.py let you search for projects by id, name or description and dumps their meta information
 - restore-gitlab-project.py can restore a whole project or just a single component like all issues
 
 
