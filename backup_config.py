@@ -1,2 +1,5 @@
 TOKEN="tokenofadminuser"
 SERVER="gitlab.your-domain.tld"
+REPOSITORY_DIR="/var/opt/gitlab/git-data/repositories"
+BACKUP_DIR="/path/to/your/backups"
+UPLOAD_DIR="/var/opt/gitlab/gitlab-rails/uploads"

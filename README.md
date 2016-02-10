@@ -38,6 +38,7 @@ gitlab-project-search.py -p <search_string> [-d]
 
 `tar xvf /my/backup/dir/<project>/<project>.git.tgz
 tar xvf /my/backup/dir/<project>/<project>.wiki.git.tgz
+tar xvf /my/backup/dir/<project>/upload_<project>.tgz
 chown -R git:git *
 
 restore-gitlab-project.py -b /my/backup/dir/<project> -p <target_project_name_or_id>`
@@ -45,10 +46,9 @@ restore-gitlab-project.py -b /my/backup/dir/<project> -p <target_project_name_or
 
 ## Known issues
 
-- Currently attachments are neither backuped nor restored per project
 - By now the project to be restored and it's settings must be created by hand
 - Members are not restored yet
-- Repository and wiki archives must be extracted manually
+- Repository, wiki and upload archives must be extracted manually
 
 
 ## License

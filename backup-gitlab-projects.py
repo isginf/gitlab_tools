@@ -42,12 +42,14 @@ import backup_config
 #
 
 parser = argparse.ArgumentParser()
+parser.add_argument("-d", "--debug", help="Show debug messages", action="store_true")
 parser.add_argument("-n", "--number", help="Number of processes", type=int, default="4")
-parser.add_argument("-o", "--output", help="Output directory for backups")
+parser.add_argument("-o", "--output", help="Output directory for backups", default=backup_config.BACKUP_DIR)
 parser.add_argument("-q", "--quiet", help="No messages execpt errors", action="store_true")
-parser.add_argument("-r", "--repository", help="Repository directory")
+parser.add_argument("-r", "--repository", help="Repository directory", default=backup_config.REPOSITORY_DIR)
 parser.add_argument("-s", "--server", help="Gitlab server name", default=backup_config.SERVER)
 parser.add_argument("-t", "--token", help="Private token", default=backup_config.TOKEN)
+parser.add_argument("-u", "--upload", help="Upload directory", default=backup_config.UPLOAD_DIR)
 parser.add_argument("-w", "--wait", type=int, help="Timeout for processes in seconds")
 args = parser.parse_args()
 
@@ -57,6 +59,7 @@ if not args.server or not args.token:
 
 gitlab_lib.SERVER = args.server
 gitlab_lib.TOKEN = args.token
+gitlab_lib.DEBUG = args.debug
 gitlab_lib.QUIET = args.quiet
 
 
@@ -73,33 +76,42 @@ def dump(backup_dir, filename, data):
     out.close()
 
 
-def archivate(src_dir, dest_dir):
+def archivate(src_dir, dest_dir, prefix=""):
     """
     Zip src_dir to dest_dir
     """
-    tar = tarfile.open(os.path.join(dest_dir, os.path.basename(src_dir) + ".tgz"), "w:gz")
+    filename = "%s%s.tgz" % (prefix, os.path.basename(src_dir))
+
+    tar = tarfile.open(os.path.join(dest_dir, filename), "w:gz")
     tar.add(src_dir)
     tar.close()
 
 
-def backup_local_data(repository_dir, backup_dir, project):
+def archive_directory(project, component, directory, backup_dir):
     """
-    Backup repository and wiki data locally
+    Archivate directory to backup_dir
     """
-    project_repo = os.path.join(repository_dir, project['namespace']['name'], project['name'] + ".git")
-    project_wiki = os.path.join(repository_dir, project['namespace']['name'], project['name'] + ".wiki.git")
+    if os.path.exists(directory):
+        gitlab_lib.log("Backing up %s from project %s [ID %s]" % (component, project['name'], project['id']))
 
-    if os.path.exists(project_repo):
-        gitlab_lib.log("Backing up repository from project %s [ID %s]" % (project['name'], project['id']))
-        archivate(project_repo, backup_dir)
+        if component == "upload":
+            archivate(directory, backup_dir, "upload_")
+        else:
+            archivate(directory, backup_dir)
     else:
-        gitlab_lib.log("No repository found for project %s [ID %s]" % (project['name'], project['id']))
+        gitlab_lib.log("No %s found for project %s [ID %s]" % (component, project['name'], project['id']))
 
-    if os.path.exists(project_wiki):
-        gitlab_lib.log("Backing up wiki from project %s [ID %s]" % (project['name'], project['id']))
-        archivate(project_wiki, backup_dir)
-    else:
-        gitlab_lib.log("No wiki found for project %s [ID %s]" % (project['name'], project['id']))
+
+def backup_local_data(repository_dir, upload_dir, backup_dir, project):
+    """
+    Backup repository upload and wiki data locally for the given project
+    """
+    src_dirs = { "repository": os.path.join(repository_dir, project['namespace']['name'], project['name'] + ".git"),
+                 "wiki": os.path.join(repository_dir, project['namespace']['name'], project['name'] + ".wiki.git"),
+                 "upload": os.path.join(upload_dir, project['namespace']['name'], project['name']) }
+
+    for (component, directory) in src_dirs.iteritems():
+        archive_directory(project, component, directory, backup_dir)
 
 
 def backup_snippets(api_url, project, backup_dir):
@@ -141,6 +153,7 @@ def backup_issues(api_url, project, token, backup_dir):
         if notes:
             dump(backup_dir, "issue_%d_notes.dump" % (issue['id'],), notes)
 
+
 def backup(repository_dir, queue):
     """
     Backup everything for the given project
@@ -156,7 +169,7 @@ def backup(repository_dir, queue):
 
         # shall we backup local data like repository and wiki?
         if repository_dir:
-            backup_local_data(repository_dir, backup_dir, project)
+            backup_local_data(repository_dir, args.upload, backup_dir, project)
 
         # backup metadata of each component
         for (component, api_url) in gitlab_lib.PROJECT_COMPONENTS.items():
