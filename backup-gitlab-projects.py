@@ -83,7 +83,7 @@ def archivate(src_dir, dest_dir, prefix=""):
     filename = "%s%s.tgz" % (prefix, os.path.basename(src_dir))
 
     tar = tarfile.open(os.path.join(dest_dir, filename), "w:gz")
-    tar.add(src_dir)
+    tar.add(src_dir, arcname=".")
     tar.close()
 
 
