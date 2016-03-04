@@ -5,7 +5,7 @@ A collection of tools we use to manage our Gitlab CE service at the departement 
 - backup_config.py contains needed configuration like Gitlab URL and token
 - backup-gitlab-projects.py is a tool to backup individual projects using the Gitlab REST API
 - gitlab_lib.py is the central library used by the tools
-- gitlab-meta-util.py - Swiss army knife for Gitlab Metadata e.g. get all ids of all projects in a group
+- gitlab-meta-util.py - Swiss army knife for Gitlab Metadata
 - gitlab-project-search.py let you search for projects by id, name or description and dumps their meta information
 - restore-gitlab-project.py can restore a whole project or just a single component like all issues
 
@@ -22,6 +22,10 @@ Please make sure to edit backup_config.py to fit your needs.
 ### Search for a project
 
 gitlab-project-search.py -p <search_string> [-d]
+
+### Get all ids of all projects in group mygroup and print their members
+
+for PROJECT in $(gitlab-meta-util.py -o groups -i mygroup -p projects -P id); do echo -en "$PROJECT "; gitlab-meta-util.py -o projects -i $PROJECT -p members; done
 
 ### Backup all projects
 
