@@ -81,7 +81,10 @@ def get_objects(obj, obj_id):
         try:
             url = "%s/%s/%d" % (gitlab_lib.API_URL, obj, int(obj_id))
         except ValueError:
-            url = "%s/%s?search=%s" % (gitlab_lib.API_URL, obj, obj_id)
+            if obj == 'users':
+                url = "%s/%s?username=%s" % (gitlab_lib.API_URL, obj, obj_id)
+            else:
+                url = "%s/%s?search=%s" % (gitlab_lib.API_URL, obj, obj_id)
     else:
         url = "%s/%s%s?per_page=%d&page=%d" % (gitlab_lib.API_URL, obj, suffix, chunk_size, page)
         
