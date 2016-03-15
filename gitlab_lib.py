@@ -53,6 +53,11 @@ PROJECT_COMPONENTS = {
 PROJECT_MEMBERS = "%s/projects/%d/members"
 PROJECT_METADATA = "%s/projects/%d"
 PROJECT_SEARCH = "%s/projects?search=%s"
+USER_METADATA = "%s/users/%s"
+USER_BY_USERNAME = "%s/users?username=%s"
+USER_SSHKEYS = "%s/users/%s/keys"
+USER_EMAILS = "%s/users/%s/emails"
+GROUP_MEMBERS = "%s/groups/%s/members"
 ISSUE_EDIT = "%s/projects/%s/issues/%s"
 GET_NO_OF_PROJECTS = "%s/projects/all?per_page=%d&page=%d"
 GET_SNIPPET_CONTENT = "%s/projects/%d/snippets/%d/raw"
@@ -120,7 +125,7 @@ def rest_api_call(url, data={}, method="POST"):
     return response
 
 
-def fetch(rest_url):
+def fetch(rest_url, ignore_errors=False):
     """
     Fetch a REST URL with global private token and parse the resulting JSON
     Returns list of dictionaries
@@ -128,19 +133,39 @@ def fetch(rest_url):
     >>> fetch("https://" + SERVER + "/api/v3/users/1")['name']
     u'Administrator'
     """
-    result = None
+    result = []
 
     try:
         result = rest_api_call(rest_url, TOKEN, method="GET").json()
     except TypeError as e:
-        error("Failed parsing JSON of url %s error was %s\n" % (rest_url, str(e)))
+        if not ignore_errors:
+            error("Failed parsing JSON of url %s error was %s\n" % (rest_url, str(e)))
 
+    if type(result) == dict and result.get('message'):
+        if not ignore_errors:
+            error("Request to %s failed: %s\n" %(rest_url, result.get('message')))
+            
+        result = []
+        
     return result
 
 
-def get_projects():
+def user_involved_in_project(username, project):
     """
-    Returns a list of all gitlab projects if not otherwise specified
+    Returns true if username is somehow involved in project
+    Project must be dict returned by REST API
+    """
+    return project['namespace']['name'] == username or \
+        (project.get("owner") and project.get('owner').get('username') == username) or \
+        username in [x.get('username') for x in fetch(PROJECT_MEMBERS % (API_URL, project["id"]), ignore_errors=True)] or \
+        username in [x.get('username') for x in fetch(GROUP_MEMBERS % (API_URL, project["namespace"]["id"]), ignore_errors=True)]
+
+
+def get_projects(username=None, personal=False):
+    """
+    Returns a list of all gitlab projects 
+    If username was specified returns list of projects user is involved in
+    If personal is true only personal projects of the given user are returned
 
     >>> len(get_projects()) > 0
     True
@@ -153,6 +178,12 @@ def get_projects():
         buff = fetch(GET_NO_OF_PROJECTS % (API_URL, chunk_size, page))
 
         if buff:
+            if username:
+                if personal:
+                    buff = filter(lambda x: x['namespace']['name'] == username, buff)
+                else:
+                    buff = filter(lambda x: user_involved_in_project(username, x), buff)
+                
             projects.extend(buff)
             page += 1
         else:
@@ -177,6 +208,25 @@ def get_project_metadata(project):
         data.append( fetch(PROJECT_METADATA % (API_URL, project)) )
 
     return data
+
+
+def get_user_metadata(user):
+    """
+    user can be name or id
+    returns metadata of that single user
+
+    >>> type(get_user_metadata(2)[0]) == dict
+    >>> len(get_user_metadata(2)) == 1
+    True
+    """
+    data = None
+
+    try:
+        data = fetch(USER_METADATA % (API_URL, int(user)))
+    except ValueError:
+        data = fetch(USER_BY_USERNAME % (API_URL, user))
+
+    return data[0]
 
 
 def prepare_restore_data(project, entry):

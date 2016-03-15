@@ -31,6 +31,10 @@ for PROJECT in $(gitlab-meta-util.py -o groups -i mygroup -p projects -P id); do
 
 `backup-gitlab-projects.py-r /path/to/repositories/ -o /my/backup/dir`
 
+### Backup metadata and all projects of a single user
+
+`backup-gitlab-projects.py-r /path/to/repositories/ -o /my/backup/dir -U <username>`
+
 ### Restore a single component of a project
 
 `restore-gitlab-project.py -b /my/backup/dir/<project> -p <project_name_or_id> -c milestones`
@@ -51,8 +55,7 @@ restore-gitlab-project.py -b /my/backup/dir/<project> -p <target_project_name_or
 
 ## Known issues
 
-- By now the project to be restored and it's settings must be created by hand
-- Members are not restored yet
+- Members are not restored automatically
 - Repository, wiki and upload archives must be extracted manually
 
 
