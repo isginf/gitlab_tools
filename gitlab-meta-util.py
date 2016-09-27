@@ -106,31 +106,16 @@ def get_objects(obj, obj_id):
     return objects
 
 
-def get_property(obj, obj_id, obj_property):
-    metadata = gitlab_lib.fetch("%s/%s/%d" % (gitlab_lib.API_URL, obj, obj_id))
-    return metadata.get(obj_property)
-
-def set_property(obj, obj_id, obj_property, obj_value):
-    rest_url = "%s/%s/%d" % (gitlab_lib.API_URL, obj, obj_id)
-
-    try:
-        result = gitlab_lib.rest_api_call(rest_url, {obj_property: obj_value}, method="PUT")
-    except TypeError as e:
-        print "Failed parsing JSON of url %s error was %s\n" % (rest_url, str(e))
-
-    return result
-
-
 def dump(obj):
     if args.property:
-        prop_data = get_property(args.object, obj.get("id"), args.property)
+        prop_data = gitlab_lib.get_property(args.object, obj.get("id"), args.property)
 
         if args.subproperty:
             if type(prop_data) == list:
                 for prop in prop_data:
-                    print get_property(args.property, prop.get("id"), args.subproperty)
+                    print gitlab_lib.get_property(args.property, prop.get("id"), args.subproperty)
             else:
-                print get_property(args.property, prop_data.get("id"), args.subproperty)
+                print gitlab_lib.get_property(args.property, prop_data.get("id"), args.subproperty)
         else:
             print prop_data
     else:
@@ -143,6 +128,6 @@ def dump(obj):
 
 for obj in get_objects(args.object, args.id):
     if args.value:
-        set_property(args.object, obj.get("id"), args.property, args.value)
+        gitlab_lib.set_property(args.object, obj.get("id"), args.property, args.value)
     else:
         dump(obj)

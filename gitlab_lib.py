@@ -53,6 +53,7 @@ PROJECT_COMPONENTS = {
 PROJECT_MEMBERS = "%s/projects/%d/members"
 PROJECT_METADATA = "%s/projects/%d"
 PROJECT_SEARCH = "%s/projects?search=%s"
+GET_NO_OF_USERS = "%s/users?per_page=%d&page=%d"
 USER_METADATA = "%s/users/%s"
 USER_BY_USERNAME = "%s/users?username=%s"
 USER_SSHKEYS = "%s/users/%s/keys"
@@ -144,9 +145,9 @@ def fetch(rest_url, ignore_errors=False):
     if type(result) == dict and result.get('message'):
         if not ignore_errors:
             error("Request to %s failed: %s\n" %(rest_url, result.get('message')))
-            
+
         result = []
-        
+
     return result
 
 
@@ -161,9 +162,32 @@ def user_involved_in_project(username, project):
         username in [x.get('username') for x in fetch(GROUP_MEMBERS % (API_URL, project["namespace"]["id"]), ignore_errors=True)]
 
 
+def get_users():
+    """
+    Returns a list of all gitlab users
+
+    >>> len(get_users()) > 0
+    True
+    """
+    users = []
+    chunk_size = 100
+    page = 1
+
+    while 1:
+        buff = fetch(GET_NO_OF_USERS % (API_URL, chunk_size, page))
+
+        if buff:
+            users.extend(buff)
+            page += 1
+        else:
+            break
+
+    return users
+
+
 def get_projects(username=None, personal=False):
     """
-    Returns a list of all gitlab projects 
+    Returns a list of all gitlab projects
     If username was specified returns list of projects user is involved in
     If personal is true only personal projects of the given user are returned
 
@@ -183,7 +207,7 @@ def get_projects(username=None, personal=False):
                     buff = filter(lambda x: x['namespace']['name'] == username, buff)
                 else:
                     buff = filter(lambda x: user_involved_in_project(username, x), buff)
-                
+
             projects.extend(buff)
             page += 1
         else:
@@ -268,3 +292,26 @@ def parse_json(json_file):
         error("Cannot parse JSON file %s: %s" % (json_file, str(e)))
 
     return data
+
+
+
+def get_property(obj, obj_id, obj_property):
+    """
+    Get property (e.g. name) of an gitlab object (e.g. users) for a specified id
+    """
+    metadata = fetch("%s/%s/%d" % (API_URL, obj, obj_id))
+    return metadata.get(obj_property)
+
+
+def set_property(obj, obj_id, obj_property, obj_value):
+    """
+    Set property (e.g. projects_limit) of an gitlab object (e.g. users) for a specified id to value
+    """
+    rest_url = "%s/%s/%d" % (API_URL, obj, obj_id)
+
+    try:
+        result = rest_api_call(rest_url, {obj_property: obj_value}, method="PUT")
+    except TypeError as e:
+        print "Failed parsing JSON of url %s error was %s\n" % (rest_url, str(e))
+
+    return result
