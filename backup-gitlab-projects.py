@@ -161,16 +161,18 @@ def backup_user_metadata(username):
     """
 
     user = gitlab_lib.get_user_metadata(username)
-    backup_dir = os.path.join(OUTPUT_BASEDIR, "user_%s_%s" % (user['id'], user['username']))
-    if not os.path.exists(backup_dir): os.mkdir(backup_dir)
-    
-    gitlab_lib.log(u"Backing up metadata of user %s [ID %s]" % (user["username"], user["id"]))
-    dump(backup_dir, "user.json", user)
-    dump(backup_dir, "projects.json", gitlab_lib.get_projects(username))
-    dump(backup_dir, "ssh.json", gitlab_lib.fetch(gitlab_lib.USER_SSHKEYS % (gitlab_lib.API_URL, user["id"])))
-    dump(backup_dir, "email.json", gitlab_lib.fetch(gitlab_lib.USER_EMAILS % (gitlab_lib.API_URL, user["id"])))
-    
-    
+
+    if user:
+        backup_dir = os.path.join(OUTPUT_BASEDIR, "user_%s_%s" % (user['id'], user['username']))
+        if not os.path.exists(backup_dir): os.mkdir(backup_dir)
+
+        gitlab_lib.log(u"Backing up metadata of user %s [ID %s]" % (user["username"], user["id"]))
+        dump(backup_dir, "user.json", user)
+        dump(backup_dir, "projects.json", gitlab_lib.get_projects(username))
+        dump(backup_dir, "ssh.json", gitlab_lib.fetch(gitlab_lib.USER_SSHKEYS % (gitlab_lib.API_URL, user["id"])))
+        dump(backup_dir, "email.json", gitlab_lib.fetch(gitlab_lib.USER_EMAILS % (gitlab_lib.API_URL, user["id"])))
+
+
 def backup(repository_dir, queue):
     """
     Backup everything for the given project
