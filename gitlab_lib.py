@@ -244,13 +244,19 @@ def get_user_metadata(user):
     True
     """
     data = None
+    result = None
 
     try:
         data = fetch(USER_METADATA % (API_URL, int(user)))
     except ValueError:
         data = fetch(USER_BY_USERNAME % (API_URL, user))
 
-    return data[0]
+    try:
+        result = data[0]
+    except IndexError:
+        error("Cannot find user " + user)
+
+    return result
 
 
 def prepare_restore_data(project, entry):
