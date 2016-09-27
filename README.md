@@ -7,6 +7,7 @@ A collection of tools we use to manage our Gitlab CE service at the departement 
 - gitlab_lib.py is the central library used by the tools
 - gitlab-meta-util.py - Swiss army knife for Gitlab Metadata
 - gitlab-project-search.py let you search for projects by id, name or description and dumps their meta information
+- quota_hook.rb implements a nagging and max quota for git repositories (see above for installation instructions)
 - restore-gitlab-project.py can restore a whole project or just a single component like all issues
 
 
@@ -51,6 +52,25 @@ tar xvf /my/backup/dir/<project>/upload_<project>.tgz
 chown -R git:git *
 
 restore-gitlab-project.py -b /my/backup/dir/<project> -p <target_project_name_or_id>`
+
+
+## Quota hook installation
+
+- Copy quota_hook.rb to /opt/gitlab/embedded/service/gitlab-shell/lib/quota_hook.rb
+- Edit /opt/gitlab/embedded/service/gitlab-shell/hooks/pre-receive
+- Add a line to require the module
+
+```
+require_relative '../lib/gitlab_access'
+require_relative '../lib/quota_hook'
+```
+
+- And a line to execute the hook
+
+```
+if GitlabAccess.new(repo_path, key_id, refs, protocol).exec &&
+    QuotaHook.new.pre_receive(repo_path, key_id, refs) &&
+```
 
 
 ## Known issues
