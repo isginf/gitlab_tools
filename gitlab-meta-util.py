@@ -4,7 +4,7 @@
 #
 # Get one metadata of one Gitlab object like projects or groups
 #
-# E.g. get all members of all projects of a group 
+# E.g. get all members of all projects of a group
 # for PROJECT in $(./gitlab-meta-util.py -o groups -i 774 -p projects -P id); do echo -en "$PROJECT "; ./gitlab-meta-util.py -o projects -i $PROJECT -p members; done
 #
 # Copyright 2016 ETH Zurich, ISGINF, Bastian Ballmann
@@ -48,6 +48,7 @@ parser.add_argument("-p", "--property", help="Object property")
 parser.add_argument("-P", "--subproperty", help="Property of object property")
 parser.add_argument("-s", "--server", help="Gitlab server name", default=backup_config.SERVER)
 parser.add_argument("-t", "--token", help="Private token", default=backup_config.TOKEN)
+parser.add_argument("-V", "--value", help="Set property value")
 args = parser.parse_args()
 
 if not args.server or not args.token or not args.object:
@@ -73,9 +74,9 @@ def get_objects(obj, obj_id):
     page = 1
     url = ""
     suffix = ""
-    
+
     if obj == "projects":
-        suffix = "/all" 
+        suffix = "/all"
 
     if obj_id:
         try:
@@ -87,7 +88,7 @@ def get_objects(obj, obj_id):
                 url = "%s/%s?search=%s" % (gitlab_lib.API_URL, obj, obj_id)
     else:
         url = "%s/%s%s?per_page=%d&page=%d" % (gitlab_lib.API_URL, obj, suffix, chunk_size, page)
-        
+
     while 1:
         buff = gitlab_lib.fetch(url)
 
@@ -99,8 +100,8 @@ def get_objects(obj, obj_id):
 
         if obj_id or not buff:
             break
-        
-        
+
+
 
     return objects
 
@@ -109,29 +110,39 @@ def get_property(obj, obj_id, obj_property):
     metadata = gitlab_lib.fetch("%s/%s/%d" % (gitlab_lib.API_URL, obj, obj_id))
     return metadata.get(obj_property)
 
+def set_property(obj, obj_id, obj_property, obj_value):
+    rest_url = "%s/%s/%d" % (gitlab_lib.API_URL, obj, obj_id)
+
+    try:
+        result = gitlab_lib.rest_api_call(rest_url, {obj_property: obj_value}, method="PUT")
+    except TypeError as e:
+        print "Failed parsing JSON of url %s error was %s\n" % (rest_url, str(e))
+
+    return result
+
 
 def dump(obj):
     if args.property:
         prop_data = get_property(args.object, obj.get("id"), args.property)
-        
+
         if args.subproperty:
             if type(prop_data) == list:
                 for prop in prop_data:
                     print get_property(args.property, prop.get("id"), args.subproperty)
             else:
                 print get_property(args.property, prop_data.get("id"), args.subproperty)
-        else:            
+        else:
             print prop_data
     else:
         print obj
 
-        
+
 #
 # MAIN PART
 #
 
 for obj in get_objects(args.object, args.id):
-    dump(obj)
-
-    
-    
+    if args.value:
+        set_property(args.object, obj.get("id"), args.property, args.value)
+    else:
+        dump(obj)

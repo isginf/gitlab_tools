@@ -28,6 +28,10 @@ gitlab-project-search.py -p <search_string> [-d]
 
 for PROJECT in $(gitlab-meta-util.py -o groups -i mygroup -p projects -P id); do echo -en "$PROJECT "; gitlab-meta-util.py -o projects -i $PROJECT -p members; done
 
+### Set new projects_limit for a list of users
+
+for USER in $(cat userlist.txt); do ./gitlab-meta-util.py -o users -i $USER -p projects_limit -V 23; done
+
 ### Backup all projects
 
 `backup-gitlab-projects.py-r /path/to/repositories/ -o /my/backup/dir`
