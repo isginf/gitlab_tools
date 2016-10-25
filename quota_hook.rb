@@ -38,6 +38,10 @@ class QuotaHook
       raise TypeError, ref[1] + " is not a valid ref"
     end
 
+    if is_new_branch(refs[0])
+      return true
+    end                      
+    
     old_repo_size = repo_size(repo_path)
     changed_objects = get_changed_objects(repo_path, refs[0], refs[1])
 
@@ -176,4 +180,12 @@ MSG_END
   def is_not_ref(mystr)
     return mystr[/\H/]
   end
+
+  #
+  # return true if ref is NULL ref (new branch)
+  #
+  def is_new_branch(mystr)
+    return mystr == "0000000000000000000000000000000000000000"
+  end
+
 end
