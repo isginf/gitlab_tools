@@ -244,19 +244,13 @@ def get_user_metadata(user):
     True
     """
     data = None
-    result = None
 
     try:
         data = fetch(USER_METADATA % (API_URL, int(user)))
     except ValueError:
         data = fetch(USER_BY_USERNAME % (API_URL, user))
 
-    try:
-        result = data[0]
-    except IndexError:
-        error("Cannot find user " + user)
-
-    return result
+    return data[0]
 
 
 def prepare_restore_data(project, entry):
@@ -298,26 +292,3 @@ def parse_json(json_file):
         error("Cannot parse JSON file %s: %s" % (json_file, str(e)))
 
     return data
-
-
-
-def get_property(obj, obj_id, obj_property):
-    """
-    Get property (e.g. name) of an gitlab object (e.g. users) for a specified id
-    """
-    metadata = fetch("%s/%s/%d" % (API_URL, obj, obj_id))
-    return metadata.get(obj_property)
-
-
-def set_property(obj, obj_id, obj_property, obj_value):
-    """
-    Set property (e.g. projects_limit) of an gitlab object (e.g. users) for a specified id to value
-    """
-    rest_url = "%s/%s/%d" % (API_URL, obj, obj_id)
-
-    try:
-        result = rest_api_call(rest_url, {obj_property: obj_value}, method="PUT")
-    except TypeError as e:
-        print "Failed parsing JSON of url %s error was %s\n" % (rest_url, str(e))
-
-    return result
