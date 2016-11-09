@@ -112,7 +112,17 @@ def backup_local_data(repository_dir, upload_dir, backup_dir, project):
                  "upload": os.path.join(upload_dir, project['namespace']['name'], project['name']) }
 
     for (component, directory) in src_dirs.iteritems():
-        archive_directory(project, component, directory, backup_dir)
+        try_again = 3
+
+        while try_again:
+            try:
+                archive_directory(project, component, directory, backup_dir)
+                try_again = False
+            except OSError,e:
+                try_again = try_again - 1
+
+                if not try_again:
+                    gitlab_lib.log("Failed to backup %s %s: %s" % (project['name'], component, str(e)))
 
 
 def backup_snippets(api_url, project, backup_dir):
