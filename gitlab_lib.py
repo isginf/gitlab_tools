@@ -268,6 +268,19 @@ def prepare_restore_data(project, entry):
     return { k: v for (k, v) in entry.items() if k not in unwanted }
 
 
+def get_property(obj, obj_id, obj_property):
+    metadata = fetch("%s/%s/%d" % (API_URL, obj, obj_id))
+    return metadata.get(obj_property)
+
+def set_property(obj, obj_id, obj_property, obj_value):
+    rest_url = "%s/%s/%d" % (API_URL, obj, obj_id)
+
+    try:
+        result = rest_api_call(rest_url, {obj_property: obj_value}, method="PUT")
+    except TypeError as e:
+        print "Failed parsing JSON of url %s error was %s\n" % (rest_url, str(e))
+
+    return result
 
 
 def create_process(func, args):
