@@ -1,7 +1,7 @@
 #
 # Central lib for Gitlab Tools
 #
-# Copyright 2016 ETH Zurich, ISGINF, Bastian Ballmann
+# Copyright 2017 ETH Zurich, ISGINF, Bastian Ballmann
 # Email: bastian.ballmann@inf.ethz.ch
 # Web: http://www.isg.inf.ethz.ch
 #
@@ -138,9 +138,9 @@ def fetch(rest_url, ignore_errors=False):
 
     try:
         result = rest_api_call(rest_url, TOKEN, method="GET").json()
-    except TypeError as e:
+    except (TypeError, ValueError) as e:
         if not ignore_errors:
-            error("Failed parsing JSON of url %s error was %s\n" % (rest_url, str(e)))
+            error("Call to url %s failed: %s\n" % (rest_url, str(e)))
 
     if type(result) == dict and result.get('message'):
         if not ignore_errors:
