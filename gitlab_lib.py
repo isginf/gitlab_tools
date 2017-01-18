@@ -1,7 +1,7 @@
 #
 # Central lib for Gitlab Tools
 #
-# Copyright 2017 ETH Zurich, ISGINF, Bastian Ballmann
+# Copyright 2016 ETH Zurich, ISGINF, Bastian Ballmann
 # Email: bastian.ballmann@inf.ethz.ch
 # Web: http://www.isg.inf.ethz.ch
 #
@@ -21,6 +21,9 @@
 #
 # Loading modules
 #
+
+import sys
+sys.path.append("..")
 
 import json
 import requests
@@ -64,6 +67,8 @@ GET_NO_OF_PROJECTS = "%s/projects/all?per_page=%d&page=%d"
 GET_SNIPPET_CONTENT = "%s/projects/%d/snippets/%d/raw"
 NOTES_FOR_SNIPPET = "%s/projects/%s/snippets/%s/notes"
 NOTES_FOR_ISSUE = "%s/projects/%s/issues/%s/notes"
+BLOCK_USER = "%s/users/%s/block"
+UNBLOCK_USER = "%s/users/%s/unblock"
 
 
 #
@@ -162,27 +167,49 @@ def user_involved_in_project(username, project):
         username in [x.get('username') for x in fetch(GROUP_MEMBERS % (API_URL, project["namespace"]["id"]), ignore_errors=True)]
 
 
-def get_users():
-    """
-    Returns a list of all gitlab users
 
-    >>> len(get_users()) > 0
+def __username_filter(user, usernames_only=False):
+    if usernames_only:
+        return user["username"]
+    else:
+        return user
+
+
+#
+# Filter user by state
+# Generate list of chunk size
+#
+def get_users_in_state(active=True, blocked=False, usernames_only=False):
+    state = "active"
+
+    if blocked:
+        state = "blocked"
+
+    for user in get_users():
+        if user and user.get("state") == state:
+            yield __username_filter(user, usernames_only)
+
+
+def get_users(chunk_size=100, usernames_only=False):
+    """
+    Returns a generator for all gitlab users
+
+    >>> len(list(get_users())) > 0
     True
     """
-    users = []
-    chunk_size = 100
     page = 1
 
     while 1:
         buff = fetch(GET_NO_OF_USERS % (API_URL, chunk_size, page))
 
         if buff:
-            users.extend(buff)
+            for user in buff:
+                yield __username_filter(user, usernames_only)
+
             page += 1
+
         else:
             break
-
-    return users
 
 
 def get_projects(username=None, personal=False):
@@ -194,26 +221,25 @@ def get_projects(username=None, personal=False):
     >>> len(get_projects()) > 0
     True
     """
-    projects = []
     chunk_size = 100
     page = 1
 
     while 1:
-        buff = fetch(GET_NO_OF_PROJECTS % (API_URL, chunk_size, page))
+        projects = fetch(GET_NO_OF_PROJECTS % (API_URL, chunk_size, page))
 
-        if buff:
+        if projects:
             if username:
                 if personal:
-                    buff = filter(lambda x: x['namespace']['name'] == username, buff)
+                    projects = filter(lambda x: x['namespace']['name'] == username, buff)
                 else:
-                    buff = filter(lambda x: user_involved_in_project(username, x), buff)
+                    projects = filter(lambda x: user_involved_in_project(username, x), buff)
 
-            projects.extend(buff)
             page += 1
-        else:
-            break
 
-    return projects
+            for project in projects:
+                yield project
+        else:
+            return
 
 
 def get_project_metadata(project):
@@ -250,7 +276,47 @@ def get_user_metadata(user):
     except ValueError:
         data = fetch(USER_BY_USERNAME % (API_URL, user))
 
-    return data[0]
+    if len(data) > 0:
+        return data[0]
+    else:
+        print("User " + user + " not found.")
+        return {}
+
+
+def __block_or_unblock(url, user):
+    """
+    Internal helper function to block or unblock a user
+    """
+    result = None
+
+    try:
+        result = rest_api_call(url % (API_URL, int(user)), {"id": int(user)}, method="PUT")
+    except ValueError:
+        pass
+
+    if not result:
+        user_dict = get_user_metadata(user)
+
+        if user_dict:
+            result = rest_api_call(url % (API_URL, user_dict["id"]), {"id": user_dict["id"]}, method="PUT")
+
+    return result
+
+
+def block_user(user):
+    """
+    Block the given user
+    User can be id or name
+    """
+    return __block_or_unblock(BLOCK_USER, user)
+
+
+def unblock_user(user):
+    """
+    Unlock the given user
+    User can be id or name
+    """
+    return __block_or_unblock(UNBLOCK_USER, user)
 
 
 def prepare_restore_data(project, entry):
@@ -278,7 +344,7 @@ def set_property(obj, obj_id, obj_property, obj_value):
     try:
         result = rest_api_call(rest_url, {obj_property: obj_value}, method="PUT")
     except TypeError as e:
-        print "Failed parsing JSON of url %s error was %s\n" % (rest_url, str(e))
+        print("Failed parsing JSON of url %s error was %s\n" % (rest_url, str(e)))
 
     return result
 
