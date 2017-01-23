@@ -216,16 +216,24 @@ def backup(repository_dir, queue):
             # labels cannot be disabled therefore no labels_enabled field exists
             # otherwise check if current component is enabled in project
             elif component == "milestones" and \
-                 (project.get("issues_enabled") == True or project.get("merge_requests_enabled") == True) or \
-                 component == "labels" or \
-                 project.get(component + "_enabled") == True:
+                 (project.get("issues_enabled") == True or project.get("merge_requests_enabled") == True):
                 gitlab_lib.log(u"Backing up %s from project %s [ID %s]" % (component, project['name'], project['id']))
                 dump(backup_dir,
                      component + ".json",
                      gitlab_lib.fetch(api_url % (gitlab_lib.API_URL, project['id'])))
 
-            else:
-                gitlab_lib.log("Component %s disabled for project %s [ID %s]" % (component, project['name'], project['id']))
+            elif project.get(component + "_enabled") and project.get(component + "_enabled") == True:
+                dump(backup_dir,
+                     component + ".json",
+                     gitlab_lib.fetch(api_url % (gitlab_lib.API_URL, project['id'])))
+
+            elif component != "milestones" and \
+                 component != "snippets" and \
+                 component != "issues" and \
+                 project.get(component + "_enabled", "not_disabled") == "not_disabled":
+                dump(backup_dir,
+                     component + ".json",
+                     gitlab_lib.fetch(api_url % (gitlab_lib.API_URL, project['id'])))
 
 
 #

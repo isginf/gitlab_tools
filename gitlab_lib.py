@@ -46,11 +46,14 @@ DEBUG=False
 API_URL = "https://%s/api/v3" % (SERVER,)
 
 PROJECT_COMPONENTS = {
+    "request_access": "%s/projects/%s/access_requests",
+    "boards": "%s/projects/%s/boards",
     "issues": "%s/projects/%s/issues",
-    "snippets": "%s/projects/%s/snippets",
     "labels": "%s/projects/%s/labels",
+    "members": "%s/projects/%s/members",
     "milestones": "%s/projects/%s/milestones",
-    "merge_requests": "%s/projects/%s/merge_requests"
+    "merge_requests": "%s/projects/%s/merge_requests",
+    "snippets": "%s/projects/%s/snippets"
 }
 
 PROJECT_MEMBERS = "%s/projects/%d/members"
@@ -175,22 +178,17 @@ def __username_filter(user, usernames_only=False):
         return user
 
 
-#
-# Filter user by state
-# Generate list of chunk size
-#
-def get_users_in_state(active=True, blocked=False, usernames_only=False):
-    state = "active"
+def __user_provider_matches(user, provider):
+    result = False
 
-    if blocked:
-        state = "blocked"
+    for identity in user.get("identities"):
+        if identity.get("provider") == provider:
+            result = True
 
-    for user in get_users():
-        if user and user.get("state") == state:
-            yield __username_filter(user, usernames_only)
+    return result
 
 
-def get_users(chunk_size=100, usernames_only=False):
+def get_users(chunk_size=100, provider=None, state=None, usernames_only=False):
     """
     Returns a generator for all gitlab users
 
@@ -204,7 +202,9 @@ def get_users(chunk_size=100, usernames_only=False):
 
         if buff:
             for user in buff:
-                yield __username_filter(user, usernames_only)
+                if (provider and (not user.get("identities") or __user_provider_matches(user, provider))) and \
+                   (state and user.get("state") == state):
+                    yield __username_filter(user, usernames_only)
 
             page += 1
 
