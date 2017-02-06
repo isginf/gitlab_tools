@@ -230,9 +230,9 @@ def get_projects(username=None, personal=False):
         if projects:
             if username:
                 if personal:
-                    projects = filter(lambda x: x['namespace']['name'] == username, buff)
+                    projects = filter(lambda x: x['namespace']['name'] == username, projects)
                 else:
-                    projects = filter(lambda x: user_involved_in_project(username, x), buff)
+                    projects = filter(lambda x: user_involved_in_project(username, x), projects)
 
             page += 1
 
