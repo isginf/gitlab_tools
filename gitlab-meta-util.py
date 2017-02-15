@@ -1,5 +1,4 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
+#!/usr/bin/python3
 
 #
 # Get one metadata of one Gitlab object like projects or groups
@@ -7,7 +6,7 @@
 # E.g. get all members of all projects of a group
 # for PROJECT in $(./gitlab-meta-util.py -o groups -i 774 -p projects -P id); do echo -en "$PROJECT "; ./gitlab-meta-util.py -o projects -i $PROJECT -p members; done
 #
-# Copyright 2016 ETH Zurich, ISGINF, Bastian Ballmann
+# Copyright 2017 ETH Zurich, ISGINF, Bastian Ballmann
 # Email: bastian.ballmann@inf.ethz.ch
 # Web: http://www.isg.inf.ethz.ch
 #
@@ -73,35 +72,28 @@ def get_objects(obj, obj_id):
     chunk_size = 100
     page = 1
     url = ""
-    suffix = ""
-
-    if obj == "projects":
-        suffix = "/all"
 
     if obj_id:
         try:
             url = "%s/%s/%d" % (gitlab_lib.API_URL, obj, int(obj_id))
         except ValueError:
-            if obj == 'users':
-                url = "%s/%s?username=%s" % (gitlab_lib.API_URL, obj, obj_id)
-            else:
-                url = "%s/%s?search=%s" % (gitlab_lib.API_URL, obj, obj_id)
-    else:
-        url = "%s/%s%s?per_page=%d&page=%d" % (gitlab_lib.API_URL, obj, suffix, chunk_size, page)
+            url = "%s/%s?search=%s" % (gitlab_lib.API_URL, obj, obj_id)
 
-    while 1:
         buff = gitlab_lib.fetch(url)
+        objects.extend(list(buff))
+    else:
+        while 1:
+            url = "%s/%s?per_page=%d&page=%d" % (gitlab_lib.API_URL, obj, chunk_size, page)
+            buff = gitlab_lib.fetch(url)
 
-        if buff and type(buff) == list:
-            objects.extend(buff)
-            page += 1
-        elif buff:
-            objects.append(buff)
+            if buff and type(buff) == list:
+                objects.extend(buff)
+                page += 1
+            else:
+                if buff:
+                    objects.append(buff)
 
-        if obj_id or not buff:
-            break
-
-
+                break
 
     return objects
 
@@ -113,13 +105,13 @@ def dump(obj):
         if args.subproperty:
             if type(prop_data) == list:
                 for prop in prop_data:
-                    print gitlab_lib.get_property(args.property, prop.get("id"), args.subproperty)
+                    print(gitlab_lib.get_property(args.property, prop.get("id"), args.subproperty))
             else:
-                print gitlab_lib.get_property(args.property, prop_data.get("id"), args.subproperty)
+                print(gitlab_lib.get_property(args.property, prop_data.get("id"), args.subproperty))
         else:
-            print prop_data
+            print(prop_data)
     else:
-        print obj
+        print(obj)
 
 
 #
