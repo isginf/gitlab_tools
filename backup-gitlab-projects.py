@@ -1,11 +1,10 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
+#!/usr/bin/python3
 
 #
 # Dump Gitlab metadata per project using the REST API
 # Can also locally backup repositories and wikis per project
 #
-# Copyright 2016 ETH Zurich, ISGINF, Bastian Ballmann
+# Copyright 2017 ETH Zurich, ISGINF, Bastian Ballmann
 # Email: bastian.ballmann@inf.ethz.ch
 # Web: http://www.isg.inf.ethz.ch
 #
@@ -111,14 +110,14 @@ def backup_local_data(repository_dir, upload_dir, backup_dir, project):
                  "wiki": os.path.join(repository_dir, project['namespace']['name'], project['name'] + ".wiki.git"),
                  "upload": os.path.join(upload_dir, project['namespace']['name'], project['name']) }
 
-    for (component, directory) in src_dirs.iteritems():
+    for (component, directory) in src_dirs.items():
         try_again = 3
 
         while try_again:
             try:
                 archive_directory(project, component, directory, backup_dir)
                 try_again = False
-            except OSError,e:
+            except OSError as e:
                 try_again = try_again - 1
 
                 if not try_again:
@@ -170,7 +169,7 @@ def backup_user_metadata(username):
     Backup all metadata including email addresses and SSH keys of a single user
     """
 
-    user = gitlab_lib.get_user_metadata(username)
+    user = gitlab_lib.get_user(username)
 
     if user:
         backup_dir = os.path.join(OUTPUT_BASEDIR, "user_%s_%s" % (user['id'], user['username']))
@@ -257,3 +256,5 @@ for project in gitlab_lib.get_projects(args.user, personal=True):
 # Start processes and let em backup every project
 for process in range(int(args.number)):
     gitlab_lib.create_process(backup, (args.repository, queue))
+
+sys.exit(0)

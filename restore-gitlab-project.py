@@ -1,10 +1,9 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
+#!/usr/bin/python3
 
 #
 # Restore Gitlab issues of a single project using the REST API
 #
-# Copyright 2016 ETH Zurich, ISGINF, Bastian Ballmann
+# Copyright 2017 ETH Zurich, ISGINF, Bastian Ballmann
 # Email: bastian.ballmann@inf.ethz.ch
 # Web: http://www.isg.inf.ethz.ch
 #
