@@ -72,28 +72,35 @@ def get_objects(obj, obj_id):
     chunk_size = 100
     page = 1
     url = ""
+    suffix = ""
+
+    if obj == "projects":
+        suffix = "/all"
 
     if obj_id:
         try:
             url = "%s/%s/%d" % (gitlab_lib.API_URL, obj, int(obj_id))
         except ValueError:
-            url = "%s/%s?search=%s" % (gitlab_lib.API_URL, obj, obj_id)
-
-        buff = gitlab_lib.fetch(url)
-        objects.extend(list(buff))
-    else:
-        while 1:
-            url = "%s/%s?per_page=%d&page=%d" % (gitlab_lib.API_URL, obj, chunk_size, page)
-            buff = gitlab_lib.fetch(url)
-
-            if buff and type(buff) == list:
-                objects.extend(buff)
-                page += 1
+            if obj == 'users':
+                url = "%s/%s?username=%s" % (gitlab_lib.API_URL, obj, obj_id)
             else:
-                if buff:
-                    objects.append(buff)
+                url = "%s/%s?search=%s" % (gitlab_lib.API_URL, obj, obj_id)
+    else:
+        url = "%s/%s%s?per_page=%d&page=%d" % (gitlab_lib.API_URL, obj, suffix, chunk_size, page)
 
-                break
+    while 1:
+        buff = gitlab_lib.fetch(url)
+
+        if buff and type(buff) == list:
+            objects.extend(buff)
+            page += 1
+        elif buff:
+            objects.append(buff)
+
+        if obj_id or not buff:
+            break
+
+
 
     return objects
 
@@ -102,14 +109,17 @@ def dump(obj):
     if args.property:
         prop_data = gitlab_lib.get_property(args.object, obj.get("id"), args.property)
 
-        if args.subproperty:
-            if type(prop_data) == list:
-                for prop in prop_data:
-                    print(gitlab_lib.get_property(args.property, prop.get("id"), args.subproperty))
+        if prop_data:
+            if args.subproperty:
+                if type(prop_data) == list:
+                    for prop in prop_data:
+                        print(gitlab_lib.get_property(args.property, prop.get("id"), args.subproperty))
+                else:
+                    print(gitlab_lib.get_property(args.property, prop_data.get("id"), args.subproperty))
             else:
-                print(gitlab_lib.get_property(args.property, prop_data.get("id"), args.subproperty))
+                print(prop_data)
         else:
-            print(prop_data)
+            print("Not found")
     else:
         print(obj)
 
