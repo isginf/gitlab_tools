@@ -4,10 +4,8 @@ A collection of tools we use to manage our Gitlab CE service at the departement 
 
 - backup_config.py contains needed configuration like Gitlab URL and token
 - backup-gitlab-projects.py is a tool to backup individual projects using the Gitlab REST API
-- get_projects_of_user.py shows a list of personal or all projects of a specified user
 - gitlab_lib.py is the central library used by the tools
 - gitlab-meta-util.py - Swiss army knife for Gitlab Metadata
-- gitlab-project-search.py let you search for projects by id, name or description and dumps their meta information
 - quota_hook.rb implements a nagging and max quota for git repositories (see above for installation instructions)
 - restore-gitlab-project.py can restore a whole project or just a single component like all issues
 
@@ -23,7 +21,7 @@ Please make sure to edit backup_config.py to fit your needs.
 
 ### Search for a project
 
-gitlab-project-search.py -p <search_string> [-d]
+gitlab-meta-util.py -o projects -i <search_string>
 
 ### Get all ids of all projects in group mygroup and print their members
 
