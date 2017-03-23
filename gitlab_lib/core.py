@@ -1,3 +1,27 @@
+#
+# Central lib for Gitlab Tools
+#
+# Copyright 2017 ETH Zurich, ISGINF, Bastian Ballmann
+# Email: bastian.ballmann@inf.ethz.ch
+# Web: http://www.isg.inf.ethz.ch
+#
+# This is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# It is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License.
+# If not, see <http://www.gnu.org/licenses/>.
+
+#
+# Loading modules
+#
+
 import json
 import random
 import string
@@ -95,6 +119,10 @@ def rest_api_call(url, data={}, method="POST"):
 
 
 def make_request(method="GET", rest_url=None, data={}, ignore_errors=False):
+    """
+    Make REST call and parse results
+    Returns a list of dicts
+    """
     result = []
 
     try:
@@ -150,6 +178,10 @@ def put(rest_url, put_data={}, ignore_errors=False):
 
 
 def randompassword(min=8, max=12):
+    """
+    Guess what? Generates a random string :)
+    """
+
     return ''.join([random.choice(string.printable) for _ in range(random.randint(min, max))])
 
 
@@ -169,10 +201,17 @@ def prepare_restore_data(project, entry):
 
 
 def get_property(obj, obj_id, obj_property):
+    """
+    Fetch a object with obj_id by REST call and return the given property
+    """
     metadata = fetch("%s/%s/%d" % (API_URL, obj, obj_id))
     return metadata.get(obj_property)
 
 def set_property(obj, obj_id, obj_property, obj_value):
+    """
+    Update property of object with obj_id by REST call
+    """
+
     rest_url = "%s/%s/%d" % (API_URL, obj, obj_id)
 
     try:

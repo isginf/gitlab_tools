@@ -1,5 +1,5 @@
 #
-# Central lib for Gitlab Tools - User code
+# Central lib for Gitlab Tools - Group code
 #
 # Copyright 2017 ETH Zurich, ISGINF, Bastian Ballmann
 # Email: bastian.ballmann@inf.ethz.ch
@@ -18,8 +18,13 @@
 # You should have received a copy of the GNU General Public License.
 # If not, see <http://www.gnu.org/licenses/>.
 
+#
+# Loading modules
+#
+
 from .core import *
 from . import permissions
+
 
 #
 # API
@@ -100,7 +105,7 @@ def get_group_projects(group):
 
 def convert_group_to_id(group):
     """
-    Try to use group as id (int) 
+    Try to use group as id (int)
     Otherwise fetch group by name
     """
     try:

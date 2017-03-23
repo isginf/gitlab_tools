@@ -18,6 +18,10 @@
 # You should have received a copy of the GNU General Public License.
 # If not, see <http://www.gnu.org/licenses/>.
 
+#
+# Loading modules
+#
+
 from .core import *
 from . import permissions
 from .users import convert_user_to_id
@@ -116,6 +120,8 @@ def get_project_metadata(project):
 
 def get_project_members(project_id):
     """
+    Get all members of the given project id
+    Returns a list of dictionaries
     """
 
     return fetch(PROJECT_MEMBERS % (API_URL, project_id))
@@ -123,6 +129,7 @@ def get_project_members(project_id):
 
 def add_project_member(project_id, user, access_level=permissions.ACCESS_LEVEL_GUEST):
     """
+    Add a member with the given access_level to the specified project id
     """
     return post(ADD_PROJECT_MEMBER % (API_URL, project_id), {"id": project_id,
                                                              "user_id": convert_user_to_id(user),
@@ -158,5 +165,6 @@ def delete_project_member(project_id, user):
 
 def protect_branch(project_id, branch="master"):
     """
+    Protect the specified branch of the given project id
     """
     return put(PROTECT_BRANCH % (API_URL, project_id, branch), ignore_errors=True)
