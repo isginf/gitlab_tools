@@ -24,6 +24,7 @@
 
 from .core import *
 from . import permissions
+from .users import USER_BY_USERNAME
 
 
 #
@@ -77,7 +78,8 @@ def add_group_member(group, user, access_level=permissions.ACCESS_LEVEL_GUEST):
     Access level is optional
     """
 
-    return post(ADD_GROUP_MEMBER % (API_URL, group_id), {"id": convert_group_to_id(group),
+    group_id = convert_group_to_id(group)
+    return post(ADD_GROUP_MEMBER % (API_URL, group_id), {"id": group_id,
                                                          "user_id": convert_group_to_id(user),
                                                          "access_level": access_level})
 
