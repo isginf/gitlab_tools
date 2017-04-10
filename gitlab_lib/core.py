@@ -47,6 +47,7 @@ API_URL = "https://%s/api/v3" % (SERVER,)
 GET_SNIPPET_CONTENT = "%s/projects/%d/snippets/%d/raw"
 NOTES_FOR_SNIPPET = "%s/projects/%s/snippets/%s/notes"
 NOTES_FOR_ISSUE = "%s/projects/%s/issues/%s/notes"
+ISSUE_EDIT = "%s/projects/%s/issues/%s"
 
 
 #
