@@ -83,7 +83,7 @@ MSG_END
 
     Dir.chdir repo_path
 
-    IO.popen(['git', 'diff-tree', '-r', old_ref, new_ref]).readlines.each do |line|
+    IO.popen(['git', 'diff-tree', '--ignore-submodules=all', '-r', old_ref, new_ref]).readlines.each do |line|
       (src_mode, dst_mode, src_hash, dst_hash, action, object_name) = line.split(" ")
       objects.push({
                      :src_mode => src_mode,
