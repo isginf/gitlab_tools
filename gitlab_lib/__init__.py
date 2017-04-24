@@ -22,6 +22,10 @@
 # Loading modules
 #
 
+import pwd
+import grp
+import os
+
 import sys
 sys.path.append("..")
 
@@ -33,3 +37,11 @@ from .groups import *
 from .projects import *
 from .permissions import *
 from .users import *
+
+
+#
+# Privilege separation
+#
+
+if os.geteuid() == 0:
+    os.seteuid( pwd.getpwnam("git").pw_uid )
