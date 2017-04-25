@@ -28,19 +28,10 @@
 import os
 import sys
 import argparse
-from pipes import quote
+from signal import signal, SIGINT
 from multiprocessing import Queue
 import gitlab_config
 import gitlab_lib
-
-
-#
-# CONSTANTS
-#
-
-VISIBILITY_PRIVATE=0
-VISIBILITY_INTERNAL=10
-VISIBILITY_PUBLIC=20
 
 
 #
@@ -64,97 +55,16 @@ if not args.server or not args.token or not args.project or not args.backup_dir:
     print("You must at least specify --server, --token, --project and --backup_dir")
     sys.exit(1)
 
+queue = Queue()
+processes = []
+gitlab_lib.core.DEBUG = args.debug
+gitlab_lib.TOKEN = args.token
+gitlab_lib.SERVER = args.server
+
 
 #
 # SUBROUTINES
 #
-
-def restore_entry(project, queue):
-    """
-    Restore a single entry of a project component
-    """
-    while not queue.empty():
-        entry = queue.get()
-
-        gitlab_lib.log("Restoring %s [%s]" % (entry['component'], entry.get('name') or "ID " + str(entry.get('id'))))
-
-        # for snippets we must additionally restore the content file
-        if entry['component'] == "snippets":
-            restore_snippets(project, entry)
-        else:
-            result = gitlab_lib.rest_api_call(gitlab_lib.PROJECT_COMPONENTS[entry['component']] % (gitlab_lib.API_URL, project['id']),
-                                              gitlab_lib.prepare_restore_data(project, entry))
-
-            if entry['component'] == "issues":
-                result = result.json()
-                gitlab_lib.rest_api_call(gitlab_lib.ISSUE_EDIT % (gitlab_lib.API_URL, project['id'], result.get('id')),
-                                         gitlab_lib.prepare_restore_data(project, update_issue_metadata(entry)),
-                                         "PUT")
-                restore_notes(gitlab_lib.NOTES_FOR_ISSUE % (gitlab_lib.API_URL, project['id'], str(entry.get('id'))),
-                              project,
-                              entry)
-
-
-def restore_snippets(project, entry):
-    """
-    Restore a single snippet
-    """
-    if not entry.get('visibility_level'):
-        entry['visibility_level'] = VISIBILITY_PRIVATE
-
-    if not entry.get('file_name'):
-        entry['file_name'] = quote(entry['title']).replace(" ", "_").replace("'", "") + ".txt"
-
-        snippet_content = os.path.join(args.backup_dir, "snippet_" + str(entry.get('id')) + "_content.dump")
-        entry['code'] = gitlab_lib.parse_json(snippet_content)
-
-        if entry['code']:
-            gitlab_lib.debug("RESTORE ENTRY\n\tcomponent %s\n\turl %s\n\tproject %s\n\tentry %s\n" % (entry['component'],
-                                                                                                      gitlab_lib.PROJECT_COMPONENTS[entry['component']],
-                                                                                                      project['id'],
-                                                                                                      gitlab_lib.prepare_restore_data(project, entry)))
-
-            gitlab_lib.rest_api_call(gitlab_lib.PROJECT_COMPONENTS["snippets"] % (gitlab_lib.API_URL, project['id']),
-                                     gitlab_lib.prepare_restore_data(project, entry))
-
-            restore_notes(gitlab_lib.NOTES_FOR_SNIPPET % (gitlab_lib.API_URL, project['id'], str(entry.get('id'))),
-                          project,
-                          entry)
-        else:
-            gitlab_lib.error("Content file of snippet " + str(entry.get('id')) + " cannot be found. Won't restore snippet!")
-
-
-def restore_notes(api_url, project, entry):
-    """
-    Restore the notes to a component like snippets or issues
-    """
-    notes_file = os.path.join(args.backup_dir, entry['component'] + "_" + str(entry.get('id')) + "_notes.dump")
-
-    if os.path.exists(notes_file):
-        notes = gitlab_lib.parse_json(notes_file)
-
-        for note in notes:
-            note[entry['component'] + '_id'] = str(entry.get('id'))
-
-            gitlab_lib.rest_api_call(api_url,
-                                     gitlab_lib.prepare_restore_data(project, note))
-
-
-def update_issue_metadata(entry):
-    """
-    Set owner and assignee, close the ticket if it was closed
-    """
-    if entry.get('state') == "closed":
-        entry['state_event'] = "close"
-
-    if type(entry.get("assignee")) == dict:
-        entry['assignee_id'] = entry['assignee']["id"]
-
-    if type(entry.get("milestone")) == dict:
-        entry['milestone_id'] = entry['milestone']["id"]
-
-    return entry
-
 
 def fill_restore_queue(project, component):
     """
@@ -163,24 +73,34 @@ def fill_restore_queue(project, component):
     component is the name of the component like the keys in PROJECT_COMPONENTS
     """
     restore_file = os.path.join(args.backup_dir, component + ".json")
-    backup = gitlab_lib.parse_json(restore_file)
+    restored = False
 
-    if backup:
-        for entry in backup:
-            entry['component'] = component
-            queue.put(entry)
-    else:
+    if os.path.isfile(restore_file):
+        backup = gitlab_lib.parse_json(restore_file)
+
+        if backup:
+            for entry in backup:
+                entry['component'] = component
+                queue.put(entry)
+                restored = True
+
+    if not restored:
         gitlab_lib.log("Nothing to do for " + component)
+
+#
+# SIGNAL HANDLERS
+#
+
+def clean_shutdown(signal, frame):
+    for process in processes:
+        procsess.terminate()
+
+signal(SIGINT, clean_shutdown)
 
 
 #
 # MAIN PART
 #
-
-queue = Queue()
-gitlab_lib.DEBUG = args.debug
-gitlab_lib.TOKEN = args.token
-gitlab_lib.SERVER = args.server
 
 # Check backup exists and looks reasonable
 if not os.path.exists(args.backup_dir):
@@ -217,6 +137,7 @@ nr_of_processes = args.number
 if queue.qsize() < args.number:
     nr_of_processes = queue.qsize()
 
-map(lambda _: gitlab_lib.create_process(restore_entry,
-                                        (project_data[0], queue)),
-    range(int(nr_of_processes)))
+for process in range(nr_of_processes):
+    processes.append( gitlab_lib.create_process(gitlab_lib.restore_entry, (args.backup_dir, project_data[0], queue)) )
+
+sys.exit(0)
