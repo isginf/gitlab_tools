@@ -27,7 +27,7 @@ import random
 import string
 import requests
 from multiprocessing import Process
-from backup_config import SERVER, TOKEN
+from gitlab_config import SERVER, TOKEN
 
 #
 # Configuration

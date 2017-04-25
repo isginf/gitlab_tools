@@ -2,7 +2,7 @@
 
 A collection of tools we use to manage our Gitlab CE service at the departement of informatics at the ETH Zurich.
 
-- backup_config.py contains needed configuration like Gitlab URL and token
+- gitlab_config.py contains needed configuration like Gitlab URL and token
 - backup-gitlab-projects.py is a tool to backup individual projects using the Gitlab REST API
 - gitlab_lib.py is the central library used by the tools
 - gitlab-meta-util.py - Swiss army knife for Gitlab Metadata
@@ -14,7 +14,7 @@ A collection of tools we use to manage our Gitlab CE service at the departement 
 
 - You need to install the Python module requests either by using `pip install -r requirements.txt` or using the package manager of your OS
 
-Please make sure to edit backup_config.py to fit your needs.
+Please make sure to edit gitlab_config.py to fit your needs.
 
 
 ## Usage

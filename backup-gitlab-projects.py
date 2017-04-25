@@ -31,9 +31,10 @@ import sys
 import json
 import argparse
 import tarfile
+from signal import signal, SIGINT
 from multiprocessing import Queue
 import gitlab_lib
-import backup_config
+import gitlab_config
 
 
 #
@@ -43,12 +44,12 @@ import backup_config
 parser = argparse.ArgumentParser()
 parser.add_argument("-d", "--debug", help="Show debug messages", action="store_true")
 parser.add_argument("-n", "--number", help="Number of processes", type=int, default="4")
-parser.add_argument("-o", "--output", help="Output directory for backups", default=backup_config.BACKUP_DIR)
+parser.add_argument("-o", "--output", help="Output directory for backups", default=gitlab_config.BACKUP_DIR)
 parser.add_argument("-q", "--quiet", help="No messages execpt errors", action="store_true")
-parser.add_argument("-r", "--repository", help="Repository directory", default=backup_config.REPOSITORY_DIR)
-parser.add_argument("-s", "--server", help="Gitlab server name", default=backup_config.SERVER)
-parser.add_argument("-t", "--token", help="Private token", default=backup_config.TOKEN)
-parser.add_argument("-u", "--upload", help="Upload directory", default=backup_config.UPLOAD_DIR)
+parser.add_argument("-r", "--repository", help="Repository directory", default=gitlab_config.REPOSITORY_DIR)
+parser.add_argument("-s", "--server", help="Gitlab server name", default=gitlab_config.SERVER)
+parser.add_argument("-t", "--token", help="Private token", default=gitlab_config.TOKEN)
+parser.add_argument("-u", "--upload", help="Upload directory", default=gitlab_config.UPLOAD_DIR)
 parser.add_argument("-U", "--user", help="Username to backup")
 parser.add_argument("-w", "--wait", type=int, help="Timeout for processes in seconds")
 args = parser.parse_args()
@@ -59,8 +60,23 @@ if not args.server or not args.token:
 
 gitlab_lib.SERVER = args.server
 gitlab_lib.TOKEN = args.token
-gitlab_lib.DEBUG = args.debug
-gitlab_lib.QUIET = args.quiet
+gitlab_lib.core.DEBUG = args.debug
+gitlab_lib.core.QUIET = args.quiet
+
+OUTPUT_BASEDIR = args.output or "."
+queue = Queue()
+processes = []
+
+
+#
+# SIGNAL HANDLERS
+#
+
+def clean_shutdown(signal, frame):
+    for process in processes:
+        procsess.terminate()
+
+signal(SIGINT, clean_shutdown)
 
 
 #
@@ -80,32 +96,48 @@ def archivate(src_dir, dest_dir, prefix=""):
     """
     Zip src_dir to dest_dir
     """
+    result = True
     filename = "%s%s.tgz" % (prefix, os.path.basename(src_dir))
 
-    tar = tarfile.open(os.path.join(dest_dir, filename), "w:gz")
-    tar.add(src_dir, arcname=".")
-    tar.close()
+    try:
+        tar = tarfile.open(os.path.join(dest_dir, filename), "w:gz")
+        tar.add(src_dir, arcname=".")
+        tar.close()
+    except (FileExistsError):
+        os.unlink(filename)
+        archivate(src_dir, filename)
+    except (tarfile.TarError, OSError) as e:
+        result = False
+        gitlab_lib.log("Error creating tar archive %s from directory %s: %s" % (filename, directory, str(e)))
+
+    return result
 
 
 def archive_directory(project, component, directory, backup_dir):
     """
     Archivate directory to backup_dir
     """
+    result = False
+
     if os.path.exists(directory):
         gitlab_lib.log("Backing up %s from project %s [ID %s]" % (component, project['name'], project['id']))
 
         if component == "upload":
-            archivate(directory, backup_dir, "upload_")
+            result = archivate(directory, backup_dir, "upload_")
         else:
-            archivate(directory, backup_dir)
+            result = archivate(directory, backup_dir)
     else:
         gitlab_lib.log("No %s found for project %s [ID %s]" % (component, project['name'], project['id']))
+        result = True
+
+    return result
 
 
 def backup_local_data(repository_dir, upload_dir, backup_dir, project):
     """
     Backup repository upload and wiki data locally for the given project
     """
+    success = False
     src_dirs = { "repository": os.path.join(repository_dir, project['namespace']['name'], project['name'] + ".git"),
                  "wiki": os.path.join(repository_dir, project['namespace']['name'], project['name'] + ".wiki.git"),
                  "upload": os.path.join(upload_dir, project['namespace']['name'], project['name']) }
@@ -114,14 +146,17 @@ def backup_local_data(repository_dir, upload_dir, backup_dir, project):
         try_again = 3
 
         while try_again:
-            try:
-                archive_directory(project, component, directory, backup_dir)
+            success = archive_directory(project, component, directory, backup_dir)
+
+            if success:
                 try_again = False
-            except OSError as e:
+            else:
                 try_again = try_again - 1
 
                 if not try_again:
-                    gitlab_lib.log("Failed to backup %s %s: %s" % (project['name'], component, str(e)))
+                    gitlab_lib.log("Failed to backup %s %s" % (project['name'], component))
+
+    return success
 
 
 def backup_snippets(api_url, project, backup_dir):
@@ -197,7 +232,11 @@ def backup(repository_dir, queue):
 
         # shall we backup local data like repository and wiki?
         if repository_dir:
-            backup_local_data(repository_dir, args.upload, backup_dir, project)
+            success = backup_local_data(repository_dir, args.upload, backup_dir, project)
+
+            if not success and not project.get("retried"):
+                project["retried"] = True
+                queue.put(project)
 
         # backup metadata of each component
         for (component, api_url) in gitlab_lib.PROJECT_COMPONENTS.items():
@@ -239,9 +278,6 @@ def backup(repository_dir, queue):
 # MAIN PART
 #
 
-OUTPUT_BASEDIR = args.output or "."
-queue = Queue()
-
 if not os.path.exists(OUTPUT_BASEDIR):
     os.mkdir(OUTPUT_BASEDIR)
 
@@ -255,6 +291,6 @@ for project in gitlab_lib.get_projects(args.user, personal=True):
 
 # Start processes and let em backup every project
 for process in range(int(args.number)):
-    gitlab_lib.create_process(backup, (args.repository, queue))
+    processes.append( gitlab_lib.create_process(backup, (args.repository, queue)) )
 
 sys.exit(0)

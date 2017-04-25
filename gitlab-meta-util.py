@@ -32,7 +32,7 @@ import os
 import sys
 import argparse
 import gitlab_lib
-import backup_config
+import gitlab_config
 
 
 #
@@ -45,8 +45,8 @@ parser.add_argument("-i", "--id", help="Object id or name")
 parser.add_argument("-o", "--object", help="Gitlab object")
 parser.add_argument("-p", "--property", help="Object property")
 parser.add_argument("-P", "--subproperty", help="Property of object property")
-parser.add_argument("-s", "--server", help="Gitlab server name", default=backup_config.SERVER)
-parser.add_argument("-t", "--token", help="Private token", default=backup_config.TOKEN)
+parser.add_argument("-s", "--server", help="Gitlab server name", default=gitlab_config.SERVER)
+parser.add_argument("-t", "--token", help="Private token", default=gitlab_config.TOKEN)
 parser.add_argument("-V", "--value", help="Set property value")
 args = parser.parse_args()
 

@@ -30,7 +30,7 @@ import sys
 import argparse
 from pipes import quote
 from multiprocessing import Queue
-import backup_config
+import gitlab_config
 import gitlab_lib
 
 
@@ -55,8 +55,8 @@ parser.add_argument("-n", "--number", help="Number of processes", default=3)
 parser.add_argument("-p", "--project", help="Project name or id in Gitlab")
 parser.add_argument("-q", "--quiet", help="No messages execpt errors", action="store_true")
 parser.add_argument("-r", "--repository", help="Repository directory")
-parser.add_argument("-s", "--server", help="Gitlab server name", default=backup_config.SERVER)
-parser.add_argument("-t", "--token", help="Private token", default=backup_config.TOKEN)
+parser.add_argument("-s", "--server", help="Gitlab server name", default=gitlab_config.SERVER)
+parser.add_argument("-t", "--token", help="Private token", default=gitlab_config.TOKEN)
 parser.add_argument("-w", "--wait", help="Timeout for processes in seconds", default=3)
 args = parser.parse_args()
 
