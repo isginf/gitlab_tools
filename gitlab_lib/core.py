@@ -43,6 +43,9 @@ DEBUG=False
 
 API_URL = "https://%s/api/v3" % (SERVER,)
 
+VISIBILITY_PRIVATE=0
+VISIBILITY_INTERNAL=10
+VISIBILITY_PUBLIC=20
 
 GET_SNIPPET_CONTENT = "%s/projects/%d/snippets/%d/raw"
 NOTES_FOR_SNIPPET = "%s/projects/%s/snippets/%s/notes"
@@ -186,27 +189,13 @@ def randompassword(min=8, max=12):
     return ''.join([random.choice(string.printable) for _ in range(random.randint(min, max))])
 
 
-def prepare_restore_data(project, entry):
-    """
-    Set project id as id on entry data, remove every unwanted key and add
-    required key with default values
-
-    >>> prepare_restore_data({'id': 42}, {'title': 'test', 'component': 'issues'})
-    {'id': '42', 'title': 'test'}
-    """
-    unwanted = ["component", "created_at", "updated_at", "expires_at"]
-
-    entry["id"] = str(project['id'])
-
-    return { k: v for (k, v) in entry.items() if k not in unwanted }
-
-
 def get_property(obj, obj_id, obj_property):
     """
     Fetch a object with obj_id by REST call and return the given property
     """
     metadata = fetch("%s/%s/%d" % (API_URL, obj, obj_id))
     return metadata.get(obj_property)
+
 
 def set_property(obj, obj_id, obj_property, obj_value):
     """

@@ -26,8 +26,9 @@ import os
 import json
 import tarfile
 from .core import *
-from .users import get_user, USER_EMAILS, USER_SSHKEYS
-from .projects import get_projects, PROJECT_COMPONENTS
+from .api import *
+from .users import get_user
+from .projects import get_projects
 
 
 #
@@ -150,22 +151,74 @@ def backup_issues(api_url, project, token, backup_dir):
             dump(backup_dir, "issue_%d_notes.dump" % (issue['id'],), notes)
 
 
-def backup_user_metadata(username, output_basedir):
+def backup_user_metadata(user, output_basedir):
     """
     Backup all metadata including email addresses and SSH keys of a single user
     """
 
-    user = get_user(username)
+    if not type(user) == dict:
+        user = get_user(username)
 
     if user:
         backup_dir = os.path.join(output_basedir, "user_%s_%s" % (user['id'], user['username']))
+        if not os.path.exists(output_basedir): os.mkdir(output_basedir)
         if not os.path.exists(backup_dir): os.mkdir(backup_dir)
 
         log(u"Backing up metadata of user %s [ID %s]" % (user["username"], user["id"]))
         dump(backup_dir, "user.json", user)
-        dump(backup_dir, "projects.json", get_projects(username))
+        dump(backup_dir, "projects.json", list(get_projects(user["username"])))
         dump(backup_dir, "ssh.json", fetch(USER_SSHKEYS % (API_URL, user["id"])))
         dump(backup_dir, "email.json", fetch(USER_EMAILS % (API_URL, user["id"])))
+
+
+def backup_project(project, repository_dir, upload_dir, backup_dir):
+    """
+    Backup a single project
+    """
+    dump(backup_dir, "project.json", project)
+
+    # shall we backup local data like repository and wiki?
+    if repository_dir:
+        success = backup_local_data(repository_dir, upload_dir, backup_dir, project)
+
+        if not success and not project.get("retried"):
+            project["retried"] = True
+            queue.put(project)
+
+    # backup metadata of each component
+    for (component, api_url) in PROJECT_COMPONENTS.items():
+        # issues
+        if component == "issues" and \
+           project.get(component + "_enabled") == True:
+            backup_issues(api_url, project, TOKEN, backup_dir)
+
+        # snippets
+        elif component == "snippets" and \
+           project.get(component + "_enabled") == True:
+            backup_snippets(api_url, project, backup_dir)
+
+        # milestones are enabled if either issues or merge_requests are enabled
+        # labels cannot be disabled therefore no labels_enabled field exists
+        # otherwise check if current component is enabled in project
+        elif component == "milestones" and \
+             (project.get("issues_enabled") == True or project.get("merge_requests_enabled") == True):
+            log(u"Backing up %s from project %s [ID %s]" % (component, project['name'], project['id']))
+            dump(backup_dir,
+                 component + ".json",
+                 fetch(api_url % (API_URL, project['id'])))
+
+        elif project.get(component + "_enabled") and project.get(component + "_enabled") == True:
+            dump(backup_dir,
+                 component + ".json",
+                 fetch(api_url % (API_URL, project['id'])))
+
+        elif component != "milestones" and \
+             component != "snippets" and \
+             component != "issues" and \
+             project.get(component + "_enabled", "not_disabled") == "not_disabled":
+            dump(backup_dir,
+                 component + ".json",
+                 fetch(api_url % (API_URL, project['id'])))
 
 
 def backup(repository_dir, upload_dir, output_basedir, queue):
@@ -178,48 +231,4 @@ def backup(repository_dir, upload_dir, output_basedir, queue):
         project = queue.get()
         backup_dir = os.path.join(output_basedir, "%s_%s_%s" % (project['id'], project['namespace']['name'], project['name']))
         if not os.path.exists(backup_dir): os.mkdir(backup_dir)
-
-        dump(backup_dir, "project.json", project)
-
-        # shall we backup local data like repository and wiki?
-        if repository_dir:
-            success = backup_local_data(repository_dir, upload_dir, backup_dir, project)
-
-            if not success and not project.get("retried"):
-                project["retried"] = True
-                queue.put(project)
-
-        # backup metadata of each component
-        for (component, api_url) in PROJECT_COMPONENTS.items():
-            # issues
-            if component == "issues" and \
-               project.get(component + "_enabled") == True:
-                backup_issues(api_url, project, TOKEN, backup_dir)
-
-            # snippets
-            elif component == "snippets" and \
-               project.get(component + "_enabled") == True:
-                backup_snippets(api_url, project, backup_dir)
-
-            # milestones are enabled if either issues or merge_requests are enabled
-            # labels cannot be disabled therefore no labels_enabled field exists
-            # otherwise check if current component is enabled in project
-            elif component == "milestones" and \
-                 (project.get("issues_enabled") == True or project.get("merge_requests_enabled") == True):
-                log(u"Backing up %s from project %s [ID %s]" % (component, project['name'], project['id']))
-                dump(backup_dir,
-                     component + ".json",
-                     fetch(api_url % (API_URL, project['id'])))
-
-            elif project.get(component + "_enabled") and project.get(component + "_enabled") == True:
-                dump(backup_dir,
-                     component + ".json",
-                     fetch(api_url % (API_URL, project['id'])))
-
-            elif component != "milestones" and \
-                 component != "snippets" and \
-                 component != "issues" and \
-                 project.get(component + "_enabled", "not_disabled") == "not_disabled":
-                dump(backup_dir,
-                     component + ".json",
-                     fetch(api_url % (API_URL, project['id'])))
+        backup_project(project, repository_dir, upload_dir, output_basedir)

@@ -25,7 +25,7 @@
 import os
 from pipes import quote
 from .core import *
-from .projects import PROJECT_COMPONENTS
+from .api import *
 
 
 #
@@ -47,31 +47,37 @@ def prepare_restore_data(project, entry):
     return { k: v for (k, v) in entry.items() if k not in unwanted }
 
 
-def restore_entry(backup_dir, project, queue):
+def restore_entry(backup_dir, project, entry):
     """
     Restore a single entry of a project component
     """
+    log("Restoring %s [%s]" % (entry['component'], entry.get('name') or "ID " + str(entry.get('id'))))
+
+    # for snippets we must additionally restore the content file
+    if entry['component'] == "snippets":
+        restore_snippets(backup_dir, project, entry)
+    else:
+        result = rest_api_call(PROJECT_COMPONENTS[entry['component']] % (API_URL, project['id']),
+                                          prepare_restore_data(project, entry))
+
+        if entry['component'] == "issues":
+            result = result.json()
+            rest_api_call(ISSUE_EDIT % (API_URL, project['id'], result.get('id')),
+                                     prepare_restore_data(project, update_issue_metadata(entry)),
+                                     "PUT")
+            restore_notes(backup_dir,
+                          NOTES_FOR_ISSUE % (API_URL, project['id'], str(entry.get('id'))),
+                          project,
+                          entry)
+
+
+def restore(backup_dir, project, queue):
+    """
+    Restore a project
+    """
     while not queue.empty():
         entry = queue.get()
-
-        log("Restoring %s [%s]" % (entry['component'], entry.get('name') or "ID " + str(entry.get('id'))))
-
-        # for snippets we must additionally restore the content file
-        if entry['component'] == "snippets":
-            restore_snippets(backup_dir, project, entry)
-        else:
-            result = rest_api_call(PROJECT_COMPONENTS[entry['component']] % (API_URL, project['id']),
-                                              prepare_restore_data(project, entry))
-
-            if entry['component'] == "issues":
-                result = result.json()
-                rest_api_call(ISSUE_EDIT % (API_URL, project['id'], result.get('id')),
-                                         prepare_restore_data(project, update_issue_metadata(entry)),
-                                         "PUT")
-                restore_notes(backup_dir,
-                              NOTES_FOR_ISSUE % (API_URL, project['id'], str(entry.get('id'))),
-                              project,
-                              entry)
+        restore_entry(backup_dir, project, entry)
 
 
 def restore_snippets(backup_dir, project, entry):

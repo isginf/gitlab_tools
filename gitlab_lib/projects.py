@@ -23,34 +23,9 @@
 #
 
 from .core import *
+from .api import *
 from . import permissions
-from .users import convert_user_to_id
-
-
-#
-# API
-#
-
-PROJECT_COMPONENTS = {
-    "request_access": "%s/projects/%s/access_requests",
-    "boards": "%s/projects/%s/boards",
-    "issues": "%s/projects/%s/issues",
-    "labels": "%s/projects/%s/labels",
-    "members": "%s/projects/%s/members",
-    "milestones": "%s/projects/%s/milestones",
-    "merge_requests": "%s/projects/%s/merge_requests",
-    "snippets": "%s/projects/%s/snippets"
-}
-
-CREATE_PROJECT = "%s/projects"
-PROJECT_MEMBERS = "%s/projects/%d/members"
-PROJECT_METADATA = "%s/projects/%d"
-PROJECT_SEARCH = "%s/projects?search=%s"
-ADD_PROJECT_MEMBER = "%s/projects/%d/members"
-EDIT_PROJECT_MEMBER = "%s/projects/%d/members/%d"
-DEL_PROJECT_MEMBER = "%s/projects/%d/members/%d"
-GET_NO_OF_PROJECTS = "%s/projects/all?per_page=%d&page=%d"
-PROTECT_BRANCH = "%s/projects/%d/repository/branches/%s/protect"
+from .users import convert_user_to_id, user_involved_in_project
 
 
 #
@@ -68,6 +43,17 @@ def create_project(name=None, metadata={}):
     project = post(CREATE_PROJECT % (API_URL,), metadata)
 
     return project
+
+
+def delete_project(project):
+    """
+    Deletes the project with the given name or id
+    """
+
+    if not type(project) == dict:
+        project = get_project_metadata(project)
+
+    return delete(DELETE_PROJECT % (API_URL, project["id"]))
 
 
 def get_projects(username=None, personal=False):

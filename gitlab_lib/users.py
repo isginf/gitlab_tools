@@ -19,19 +19,7 @@
 # If not, see <http://www.gnu.org/licenses/>.
 
 from .core import *
-
-#
-# API
-#
-
-CREATE_USER = "%s/users"
-GET_NO_OF_USERS = "%s/users?per_page=%d&page=%d"
-USER_METADATA = "%s/users/%s"
-USER_BY_USERNAME = "%s/users?username=%s"
-USER_SSHKEYS = "%s/users/%s/keys"
-USER_EMAILS = "%s/users/%s/emails"
-BLOCK_USER = "%s/users/%s/block"
-UNBLOCK_USER = "%s/users/%s/unblock"
+from .api import *
 
 
 #
@@ -80,6 +68,17 @@ def create_user(username=None, name=None, email=None, metadata={}):
     user= post(CREATE_USER % (API_URL,), metadata)
 
     return user
+
+
+def delete_user(user):
+    """
+    Deletes the user with the given name or id
+    """
+
+    if not type(user) == dict:
+        user = get_user(user)
+
+    return delete(DELETE_USER % (API_URL, user["id"]), {"id": user["id"]})
 
 
 def get_users(chunk_size=100, provider=None, state=None, usernames_only=False):
@@ -156,7 +155,7 @@ def unblock_user(user):
 
 def convert_user_to_id(user):
     """
-    Try to use user as id (int) 
+    Try to use user as id (int)
     Otherwise fetch user by name
     """
     try:

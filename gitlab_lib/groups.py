@@ -23,19 +23,8 @@
 #
 
 from .core import *
+from .api import *
 from . import permissions
-from .users import USER_BY_USERNAME
-
-
-#
-# API
-#
-
-CREATE_GROUP = "%s/groups"
-ADD_GROUP_MEMBER = "%s/groups/%d/members"
-GROUP_MEMBERS = "%s/groups/%s/members"
-GROUP_PROJECTS = "%s/groups/%d/projects"
-GROUP_BY_GROUPNAME = "%s/groups?search=%s"
 
 
 #
