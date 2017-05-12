@@ -49,7 +49,7 @@ def __user_provider_matches(user, provider):
     result = False
 
     for identity in user.get("identities"):
-        if identity.get("provider") == provider:
+        if identity.get("provider") in provider:
             result = True
 
     return result
@@ -84,19 +84,28 @@ def delete_user(user):
 def get_users(chunk_size=100, provider=None, state=None, usernames_only=False):
     """
     Returns a generator for all gitlab users
+    Parameter provider (e.g. ldap or google_oauth2) can be string or list
+    state like active or blocked can also be string or list
+    If you don't need user objects but only usernames set usernames_only to True
 
     >>> len(list(get_users())) > 0
     True
     """
     page = 1
 
+    if not type(state) == list:
+        state = [state]
+
+    if not type(provider) == list:
+        provider = [provider]
+
     while 1:
         buff = fetch(GET_NO_OF_USERS % (API_URL, chunk_size, page))
 
         if buff:
             for user in buff:
-                if ((not provider and not user.get("identities")) or __user_provider_matches(user, provider)) and \
-                   (not state or user.get("state") == state):
+                if (not provider or __user_provider_matches(user, provider)) and \
+                   (not state or user.get("state") in state):
                     yield __username_filter(user, usernames_only)
 
             page += 1
