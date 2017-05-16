@@ -104,8 +104,8 @@ def get_users(chunk_size=100, provider=None, state=None, usernames_only=False):
 
         if buff:
             for user in buff:
-                if (not provider or __user_provider_matches(user, provider)) and \
-                   (not state or user.get("state") in state):
+                if (not provider[0] or __user_provider_matches(user, provider)) and \
+                   (not state[0] or user.get("state") in state):
                     yield __username_filter(user, usernames_only)
 
             page += 1
