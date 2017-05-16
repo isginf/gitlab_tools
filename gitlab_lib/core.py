@@ -218,7 +218,6 @@ def create_process(func, args):
     """
     p = Process(target=func, args=args)
     p.start()
-    p.join()
 
     return p
 
