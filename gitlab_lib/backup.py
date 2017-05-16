@@ -231,4 +231,4 @@ def backup(repository_dir, upload_dir, output_basedir, queue):
         project = queue.get()
         backup_dir = os.path.join(output_basedir, "%s_%s_%s" % (project['id'], project['namespace']['name'], project['name']))
         if not os.path.exists(backup_dir): os.mkdir(backup_dir)
-        backup_project(project, repository_dir, upload_dir, output_basedir)
+        backup_project(project, repository_dir, upload_dir, backup_dir)
