@@ -74,7 +74,7 @@ processes = []
 
 def clean_shutdown(signal, frame):
     for process in processes:
-        procsess.terminate()
+        process.terminate()
 
 signal(SIGINT, clean_shutdown)
 
