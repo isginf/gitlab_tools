@@ -166,8 +166,6 @@ MSG_END
     end
 
     Dir.chdir repo_path
-    system("git gc")
-
     Find.find(repo_path) { |f| size += File.size(f) if File.file?(f) }
 
     return (size/1024/1024).to_i
