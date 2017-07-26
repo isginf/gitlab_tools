@@ -133,7 +133,7 @@ def __block_or_unblock(url, user):
     result = None
 
     try:
-        result = rest_api_call(url % (API_URL, int(user)), {"id": int(user)}, method="PUT")
+        result = rest_api_call(url % (API_URL, int(user)), {"id": int(user)}, method="POST")
     except ValueError:
         pass
 

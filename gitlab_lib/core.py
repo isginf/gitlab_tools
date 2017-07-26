@@ -41,7 +41,7 @@ DEBUG=False
 # API
 #
 
-API_URL = "https://%s/api/v3" % (SERVER,)
+API_URL = "https://%s/api/v4" % (SERVER,)
 
 VISIBILITY_PRIVATE=0
 VISIBILITY_INTERNAL=10
