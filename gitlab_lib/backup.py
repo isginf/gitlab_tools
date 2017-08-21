@@ -77,10 +77,16 @@ def archive_directory(project, component, directory, output_basedir):
         if os.path.exists(directory):
             log("Backing up %s from project %s [ID %s]" % (component, project['name'], project['id']))
 
-            if component == "upload":
-                success = archivate(directory, output_basedir, "upload_")
-            else:
-                success = archivate(directory, output_basedir)
+            try:
+                if component == "upload":
+                    archivate(directory, output_basedir, "upload_")
+                else:
+                    archivate(directory, output_basedir)
+            except (tarfile.TarError, OSError) as e:
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                traceback.print_exception(exc_type, exc_value, exc_traceback, limit=3, file=sys.stdout)
+                error("Backup of %s from project %s [ID %d]: %s" % (component, project['name'], project['id']), str(e))
+                success = False
         else:
             log("No %s found for project %s [ID %s]" % (component, project['name'], project['id']))
             success = True
@@ -130,7 +136,18 @@ def backup_repository(project, output_basedir, tmp_dir=TMP_DIR):
         if "fatal" in git_error or "error" in git_error:
             error = git_error
         else:
-            archive_directory(project, 'repository', clone_output_dir, output_basedir)
+            # Remove git remote otherwise it contains our admin access token
+            os.chdir(clone_output_dir)
+            git_rm_remote = ["git", "remote", "rm" , "origin"]
+
+            with subprocess.Popen(git_rm_remote, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE) as git:
+                git.wait()
+                git_error = str(git.stderr.read()).lower()
+
+                if "fatal" in git_error or "error" in git_error:
+                    error = git_error
+                else:
+                    archive_directory(project, 'repository', clone_output_dir, output_basedir)
 
     # removed temporary cloned repository
     if os.path.exists(clone_output_dir):
