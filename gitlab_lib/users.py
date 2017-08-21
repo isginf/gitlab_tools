@@ -33,8 +33,8 @@ def user_involved_in_project(username, project):
     """
     return project['namespace']['name'] == username or \
         (project.get("owner") and project.get('owner').get('username') == username) or \
-        username in [x.get('username') for x in fetch(PROJECT_MEMBERS % (API_URL, project["id"]), ignore_errors=True)] or \
-        username in [x.get('username') for x in fetch(GROUP_MEMBERS % (API_URL, project["namespace"]["id"]), ignore_errors=True)]
+        username in [x.get('username') for x in fetch(PROJECT_MEMBERS % (API_BASE_URL, project["id"]), ignore_errors=True)] or \
+        username in [x.get('username') for x in fetch(GROUP_MEMBERS % (API_BASE_URL, project["namespace"]["id"]), ignore_errors=True)]
 
 
 
@@ -65,7 +65,7 @@ def create_user(username=None, name=None, email=None, metadata={}):
     metadata["username"] = username
     metadata["email"] = email
 
-    user= post(CREATE_USER % (API_URL,), metadata)
+    user= post(CREATE_USER % (API_BASE_URL,), metadata)
 
     return user
 
@@ -78,7 +78,7 @@ def delete_user(user):
     if not type(user) == dict:
         user = get_user(user)
 
-    return delete(DELETE_USER % (API_URL, user["id"]), {"id": user["id"]})
+    return delete(DELETE_USER % (API_BASE_URL, user["id"]), {"id": user["id"]})
 
 
 def get_users(chunk_size=100, provider=None, state=None, usernames_only=False):
@@ -100,7 +100,7 @@ def get_users(chunk_size=100, provider=None, state=None, usernames_only=False):
         provider = [provider]
 
     while 1:
-        buff = fetch(GET_NO_OF_USERS % (API_URL, chunk_size, page))
+        buff = fetch(GET_NO_OF_USERS % (API_BASE_URL, chunk_size, page))
 
         if buff:
             for user in buff:
@@ -118,7 +118,7 @@ def get_user(username=None):
     """
     Get metadata of a single user
     """
-    result = fetch(USER_BY_USERNAME % (API_URL, username))
+    result = fetch(USER_BY_USERNAME % (API_BASE_URL, username))
 
     if result:
         return result[0]
@@ -133,7 +133,7 @@ def __block_or_unblock(url, user):
     result = None
 
     try:
-        result = rest_api_call(url % (API_URL, int(user)), {"id": int(user)}, method="POST")
+        result = rest_api_call(url % (API_BASE_URL, int(user)), {"id": int(user)}, method="POST")
     except ValueError:
         pass
 
@@ -141,7 +141,7 @@ def __block_or_unblock(url, user):
         user_dict = get_user(user)
 
         if user_dict:
-            result = rest_api_call(url % (API_URL, user_dict["id"]), {"id": user_dict["id"]}, method="PUT")
+            result = rest_api_call(url % (API_BASE_URL, user_dict["id"]), {"id": user_dict["id"]}, method="PUT")
 
     return result
 
@@ -170,6 +170,6 @@ def convert_user_to_id(user):
     try:
         user_id = int(user)
     except (TypeError, ValueError):
-        user_id = fetch(USER_BY_USERNAME % (API_URL, user))[0].get("id")
+        user_id = fetch(USER_BY_USERNAME % (API_BASE_URL, user))[0].get("id")
 
     return user_id

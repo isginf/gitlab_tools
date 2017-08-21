@@ -79,14 +79,14 @@ def get_objects(obj, obj_id):
 
     if obj_id:
         try:
-            url = "%s/%s/%d" % (gitlab_lib.API_URL, obj, int(obj_id))
+            url = "%s/%s/%d" % (gitlab_lib.API_BASE_URL, obj, int(obj_id))
         except ValueError:
             if obj == 'users':
-                url = "%s/%s?username=%s" % (gitlab_lib.API_URL, obj, obj_id)
+                url = "%s/%s?username=%s" % (gitlab_lib.API_BASE_URL, obj, obj_id)
             else:
-                url = "%s/%s?search=%s" % (gitlab_lib.API_URL, obj, obj_id)
+                url = "%s/%s?search=%s" % (gitlab_lib.API_BASE_URL, obj, obj_id)
     else:
-        url = "%s/%s%s?per_page=%d&page=%d" % (gitlab_lib.API_URL, obj, suffix, chunk_size, page)
+        url = "%s/%s%s?per_page=%d&page=%d" % (gitlab_lib.API_BASE_URL, obj, suffix, chunk_size, page)
 
     while 1:
         buff = gitlab_lib.fetch(url)

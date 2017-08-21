@@ -40,7 +40,7 @@ def create_project(name=None, metadata={}):
 
     metadata["name"] = name
 
-    project = post(CREATE_PROJECT % (API_URL,), metadata)
+    project = post(CREATE_PROJECT % (API_BASE_URL,), metadata)
 
     return project
 
@@ -53,7 +53,7 @@ def delete_project(project):
     if not type(project) == dict:
         project = get_project_metadata(project)
 
-    return delete(DELETE_PROJECT % (API_URL, project["id"]))
+    return delete(DELETE_PROJECT % (API_BASE_URL, project["id"]))
 
 
 def get_projects(username=None, personal=False):
@@ -69,7 +69,7 @@ def get_projects(username=None, personal=False):
     page = 1
 
     while 1:
-        projects = fetch(GET_NO_OF_PROJECTS % (API_URL, chunk_size, page))
+        projects = fetch(GET_NO_OF_PROJECTS % (API_BASE_URL, chunk_size, page))
 
         if projects:
             if username:
@@ -97,9 +97,9 @@ def get_project_metadata(project):
     data = []
 
     try:
-        data.append( fetch(PROJECT_METADATA % (API_URL, int(project))) )
+        data.append( fetch(PROJECT_METADATA % (API_BASE_URL, int(project))) )
     except ValueError:
-        data.append( fetch(PROJECT_METADATA % (API_URL, project)) )
+        data.append( fetch(PROJECT_METADATA % (API_BASE_URL, project)) )
 
     return data
 
@@ -110,14 +110,14 @@ def get_project_members(project_id):
     Returns a list of dictionaries
     """
 
-    return fetch(PROJECT_MEMBERS % (API_URL, project_id))
+    return fetch(PROJECT_MEMBERS % (API_BASE_URL, project_id))
 
 
 def add_project_member(project_id, user, access_level=permissions.ACCESS_LEVEL_GUEST):
     """
     Add a member with the given access_level to the specified project id
     """
-    return post(ADD_PROJECT_MEMBER % (API_URL, project_id), {"id": project_id,
+    return post(ADD_PROJECT_MEMBER % (API_BASE_URL, project_id), {"id": project_id,
                                                              "user_id": convert_user_to_id(user),
                                                              "access_level": access_level})
 
@@ -136,7 +136,7 @@ def edit_project_member(project_id, user, access_level, expires_at=None):
     if expires_at:
         data["expires_at"] = expires_at
 
-    return put(EDIT_PROJECT_MEMBER % (API_URL, project_id, user_id), data)
+    return put(EDIT_PROJECT_MEMBER % (API_BASE_URL, project_id, user_id), data)
 
 
 
@@ -146,11 +146,11 @@ def delete_project_member(project_id, user):
     User can be username or id, project must be id
     """
 
-    return delete(DEL_PROJECT_MEMBER % (API_URL, project_id), {"id": project_id,
+    return delete(DEL_PROJECT_MEMBER % (API_BASE_URL, project_id), {"id": project_id,
                                                                "user_id": convert_user_to_id(user)})
 
 def protect_branch(project_id, branch="master"):
     """
     Protect the specified branch of the given project id
     """
-    return put(PROTECT_BRANCH % (API_URL, project_id, branch), ignore_errors=True)
+    return put(PROTECT_BRANCH % (API_BASE_URL, project_id, branch), ignore_errors=True)

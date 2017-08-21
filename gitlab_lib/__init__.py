@@ -32,6 +32,7 @@ sys.path.append("..")
 #__all__ = ["groups", "projects", "permissions", "users"]
 #from . import *
 
+from .api import *
 from .backup import *
 from .core import *
 from .groups import *

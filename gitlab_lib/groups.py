@@ -45,14 +45,14 @@ def create_group(groupname=None, owner=None, comment=None, end_date=None):
     if end_date:
         description += " expires " + end_date
 
-    group = post(CREATE_GROUP % (API_URL,), {"name": groupname,
+    group = post(CREATE_GROUP % (API_BASE_URL,), {"name": groupname,
                                              "path": groupname,
                                              "description": description,
                                              "visibility_level": 0,
                                              "lfs_enabled": 1})
 
     if group:
-        user = fetch(USER_BY_USERNAME % (API_URL, owner))[0]
+        user = fetch(USER_BY_USERNAME % (API_BASE_URL, owner))[0]
 
         if user:
             add_group_member(group["id"], user["id"], permissions.ACCESS_LEVEL_OWNER)
@@ -68,7 +68,7 @@ def add_group_member(group, user, access_level=permissions.ACCESS_LEVEL_GUEST):
     """
 
     group_id = convert_group_to_id(group)
-    return post(ADD_GROUP_MEMBER % (API_URL, group_id), {"id": group_id,
+    return post(ADD_GROUP_MEMBER % (API_BASE_URL, group_id), {"id": group_id,
                                                          "user_id": convert_group_to_id(user),
                                                          "access_level": access_level})
 
@@ -77,7 +77,7 @@ def get_group(groupname=None):
     """
     Get metadata of a single group
     """
-    result = fetch(GROUP_BY_GROUPNAME % (API_URL, groupname))
+    result = fetch(GROUP_BY_GROUPNAME % (API_BASE_URL, groupname))
 
     if result:
         return result[0]
@@ -91,7 +91,7 @@ def get_group_projects(group):
     Group can be either name or id
     """
 
-    return fetch(GROUP_PROJECTS % (API_URL, convert_group_to_id(group)))
+    return fetch(GROUP_PROJECTS % (API_BASE_URL, convert_group_to_id(group)))
 
 
 def convert_group_to_id(group):
@@ -102,6 +102,6 @@ def convert_group_to_id(group):
     try:
         group_id = int(group)
     except (TypeError, ValueError):
-        group_id = fetch(GROUP_BY_GROUPNAME % (API_URL, group))[0].get("id")
+        group_id = fetch(GROUP_BY_GROUPNAME % (API_BASE_URL, group))[0].get("id")
 
     return group_id

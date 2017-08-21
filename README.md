@@ -16,6 +16,12 @@ A collection of tools we use to manage our Gitlab CE service at the departement 
 
 Please make sure to edit gitlab_config.py to fit your needs.
 
+To create a CLONE_ACCESS_TOKEN use the following procedure:
+
+- Go to personal users settings -> Access token and generate a token (at least for CE it doesnt get saved in the database so we do it manually)
+- su - git -c "PGHOST=/var/opt/gitlab/postgresql /opt/gitlab/embedded/bin/psql -U gitlab -d gitlabhq_production"
+- insert into oauth_access_tokens (resource_owner_id, token, refresh_token, created_at, scopes) values (1, '$TOKEN', '$TOKEN', now(), 'api'); 
+
 
 ## Usage
 

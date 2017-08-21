@@ -27,7 +27,9 @@ import random
 import string
 import requests
 from multiprocessing import Process
-from gitlab_config import SERVER, TOKEN
+from .api import API_BASE_URL
+from .exception import WebError, ReadError, ParseError
+from gitlab_config import SERVER, TOKEN, CLONE_ACCESS_TOKEN, REPOSITORY_DIR, BACKUP_DIR, UPLOAD_DIR, TMP_DIR
 
 #
 # Configuration
@@ -35,22 +37,6 @@ from gitlab_config import SERVER, TOKEN
 
 QUIET=False
 DEBUG=False
-
-
-#
-# API
-#
-
-API_URL = "https://%s/api/v4" % (SERVER,)
-
-VISIBILITY_PRIVATE=0
-VISIBILITY_INTERNAL=10
-VISIBILITY_PUBLIC=20
-
-GET_SNIPPET_CONTENT = "%s/projects/%d/snippets/%d/raw"
-NOTES_FOR_SNIPPET = "%s/projects/%s/snippets/%s/notes"
-NOTES_FOR_ISSUE = "%s/projects/%s/issues/%s/notes"
-ISSUE_EDIT = "%s/projects/%s/issues/%s"
 
 
 #
@@ -94,6 +80,8 @@ def rest_api_call(url, data={}, method="POST"):
     >>> rest_api_call("https://" + SERVER + "/api/v3/projects/2/issues", {"id": 2, "title": "just a test"}).json()['title']
     u'just a test'
     """
+    error = ""
+
     try:
         debug(method + "\n\turl " + url + "\n\tdata " + str(data) + "\n")
 
@@ -106,15 +94,18 @@ def rest_api_call(url, data={}, method="POST"):
         else:
             response = requests.post(url, data=data, headers={"PRIVATE-TOKEN" : TOKEN})
     except (requests.exceptions.ConnectionError, requests.exceptions.RequestException) as e:
-        error("Request to url %s failed: %s" % (url, str(e)))
+        error = "Request to url %s failed: %s" % (url, str(e))
         response = None
     except requests.exceptions.Timeout as e:
-        error("Request to url %s timedout: %s" % (url, str(e)))
+        error = "Request to url %s timedout: %s" % (url, str(e))
         response = None
 
     if response.status_code == 401:
         error("Request to url %s unauthorized! %s" % (url, response.text))
         response = None
+
+    if error:
+        raise WebError(url, data, method, str(e))
 
     if response:
         debug("RESPONSE " + str(response.status_code) + " " + response.text + "\n")
@@ -133,11 +124,11 @@ def make_request(method="GET", rest_url=None, data={}, ignore_errors=False):
         result = rest_api_call(rest_url, data=data, method=method).json()
     except (TypeError, ValueError) as e:
         if not ignore_errors:
-            error("Call to url %s failed: %s\n" % (rest_url, str(e)))
+            raise WebError(url, data, method, "Call to url %s failed: %s\n" % (rest_url, str(e)))
 
     if type(result) == dict and result.get('message'):
         if not ignore_errors:
-            error("Request to %s failed: %s\n" %(rest_url, result.get('message')))
+            raise WebError(url, data, method, "Request to %s failed: %s\n" %(rest_url, result.get('message')))
 
         result = []
 
@@ -193,7 +184,7 @@ def get_property(obj, obj_id, obj_property):
     """
     Fetch a object with obj_id by REST call and return the given property
     """
-    metadata = fetch("%s/%s/%d" % (API_URL, obj, obj_id))
+    metadata = fetch("%s/%s/%d" % (API_BASE_URL, obj, obj_id))
     return metadata.get(obj_property)
 
 
@@ -202,12 +193,12 @@ def set_property(obj, obj_id, obj_property, obj_value):
     Update property of object with obj_id by REST call
     """
 
-    rest_url = "%s/%s/%d" % (API_URL, obj, obj_id)
+    rest_url = "%s/%s/%d" % (API_BASE_URL, obj, obj_id)
 
     try:
         result = rest_api_call(rest_url, {obj_property: obj_value}, method="PUT")
     except TypeError as e:
-        print("Failed parsing JSON of url %s error was %s\n" % (rest_url, str(e)))
+        error("Failed parsing JSON of url %s error was %s\n" % (rest_url, str(e)))
 
     return result
 
@@ -229,10 +220,11 @@ def parse_json(json_file):
     data = None
 
     try:
-        data = json.loads(open(json_file, "rb").read().decode('utf8'))
+        raw_data = open(json_file, "rb").read().decode('utf8')
+        data = json.loads(raw_data)
     except IOError as e:
-        error("Cannot read %s: %s" % (json_file, str(e)))
+        raise ReadError(json_file, str(e))
     except ValueError as e:
-        error("Cannot parse JSON file %s: %s" % (json_file, str(e)))
+        raise ParseError(json_file, str(e))
 
     return data

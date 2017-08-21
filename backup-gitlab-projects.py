@@ -29,7 +29,9 @@
 import os
 import sys
 import json
+import time
 import argparse
+import shutil
 import tarfile
 from signal import signal, SIGINT
 from multiprocessing import Queue
@@ -58,12 +60,14 @@ if not args.server or not args.token:
     print("You must at least specify --server and --token")
     sys.exit(1)
 
-gitlab_lib.SERVER = args.server
-gitlab_lib.TOKEN = args.token
+gitlab_lib.core.SERVER = args.server
+gitlab_lib.core.TOKEN = args.token
 gitlab_lib.core.DEBUG = args.debug
 gitlab_lib.core.QUIET = args.quiet
+gitlab_lib.core.REPOSITORY_DIR = args.repository
+gitlab_lib.core.BACKUP_DIR = args.output
+gitlab_lib.core.UPLOAD_DIR = args.upload
 
-OUTPUT_BASEDIR = args.output or "."
 queue = Queue()
 processes = []
 
@@ -83,12 +87,12 @@ signal(SIGINT, clean_shutdown)
 # MAIN PART
 #
 
-if not os.path.exists(OUTPUT_BASEDIR):
-    os.mkdir(OUTPUT_BASEDIR)
+if not os.path.exists(gitlab_lib.core.BACKUP_DIR):
+    os.mkdir(gitlab_lib.core.BACKUP_DIR)
 
 # Backup metadata of a single user
 if args.user:
-    gitlab_lib.backup_user_metadata(args.user, OUTPUT_BASEDIR)
+    gitlab_lib.backup_user_metadata(args.user)
 
 # Backup all projects or only the projects of a single user
 for project in gitlab_lib.get_projects(args.user, personal=True):
@@ -96,6 +100,23 @@ for project in gitlab_lib.get_projects(args.user, personal=True):
 
 # Start processes and let em backup every project
 for process in range(int(args.number)):
-    processes.append( gitlab_lib.create_process(gitlab_lib.backup, (args.repository, args.upload, OUTPUT_BASEDIR, queue)) )
+    processes.append( gitlab_lib.create_process(gitlab_lib.backup, (queue, args.output)) )
+
+# Check if a process died and must be restarted
+while not queue.empty():
+    for (i, process) in enumerate(processes):
+        if not process.is_alive():
+            del process[i]
+
+    if len(processes) < int(args.number) and queue.qsize() > len(processes):
+        processes.append( gitlab_lib.create_process(gitlab_lib.backup, (queue, args.output)) )
+
+    time.sleep(10)
+
+try:
+    shutil.rmtree(gitlab_config.TMP_DIR)
+    os.mkdir(gitlab_config.TMP_DIR)
+except (OSError, FileNotFoundError):
+    pass
 
 sys.exit(0)

@@ -23,23 +23,28 @@
 #
 
 import os
+import sys
 import json
+import shutil
 import tarfile
+import traceback
+import subprocess
 from .core import *
 from .api import *
 from .users import get_user
 from .projects import get_projects
+from .exception import ArchiveError, CloneError
 
 
 #
 # SUBROUTINES
 #
 
-def dump(backup_dir, filename, data):
+def dump(data, output_basedir, filename):
     """
     Write the given data as json to a file
     """
-    out = open(os.path.join(backup_dir, filename), "w")
+    out = open(os.path.join(output_basedir, filename), "w")
     json.dump(data, out)
     out.close()
 
@@ -48,154 +53,193 @@ def archivate(src_dir, dest_dir, prefix=""):
     """
     Zip src_dir to dest_dir
     """
-    result = True
     filename = "%s%s.tgz" % (prefix, os.path.basename(src_dir))
 
     try:
         tar = tarfile.open(os.path.join(dest_dir, filename), "w:gz")
-        tar.add(src_dir, arcname=".")
+        tar.add(src_dir, arcname=".", recursive=True)
         tar.close()
     except (FileExistsError):
         os.unlink(filename)
         archivate(src_dir, filename)
     except (tarfile.TarError, OSError) as e:
-        result = False
-        log("Error creating tar archive %s from directory %s: %s" % (filename, directory, str(e)))
-
-    return result
+        raise ArchiveError(src_dir, dest_dir, str(e))
 
 
-def archive_directory(project, component, directory, backup_dir):
+def archive_directory(project, component, directory, output_basedir):
     """
-    Archivate directory to backup_dir
+    Archivate directory to output_basedir
     """
-    result = False
-
-    if os.path.exists(directory):
-        log("Backing up %s from project %s [ID %s]" % (component, project['name'], project['id']))
-
-        if component == "upload":
-            result = archivate(directory, backup_dir, "upload_")
-        else:
-            result = archivate(directory, backup_dir)
-    else:
-        log("No %s found for project %s [ID %s]" % (component, project['name'], project['id']))
-        result = True
-
-    return result
-
-
-def backup_local_data(repository_dir, upload_dir, backup_dir, project):
-    """
-    Backup repository upload and wiki data locally for the given project
-    """
+    try_again = 3
     success = False
-    src_dirs = { "repository": os.path.join(repository_dir, project['namespace']['name'], project['name'] + ".git"),
-                 "wiki": os.path.join(repository_dir, project['namespace']['name'], project['name'] + ".wiki.git"),
-                 "upload": os.path.join(upload_dir, project['namespace']['name'], project['name']) }
 
-    for (component, directory) in src_dirs.items():
-        try_again = 3
+    while try_again:
+        if os.path.exists(directory):
+            log("Backing up %s from project %s [ID %s]" % (component, project['name'], project['id']))
 
-        while try_again:
-            success = archive_directory(project, component, directory, backup_dir)
-
-            if success:
-                try_again = False
+            if component == "upload":
+                success = archivate(directory, output_basedir, "upload_")
             else:
-                try_again = try_again - 1
+                success = archivate(directory, output_basedir)
+        else:
+            log("No %s found for project %s [ID %s]" % (component, project['name'], project['id']))
+            success = True
 
-                if not try_again:
-                    log("Failed to backup %s %s" % (project['name'], component))
+        if success:
+            try_again = False
+        else:
+            try_again = try_again - 1
+
+            if not try_again:
+                log("Failed to backup %s %s" % (project['name'], component))
 
     return success
 
 
-def backup_snippets(api_url, project, backup_dir):
+def backup_repository(project, output_basedir, tmp_dir=TMP_DIR):
+    """
+    Backup repository as LFS resolved work tree copy
+    """
+    backup_tmp_dir = os.path.join(tmp_dir, "backup")
+    namespace_tmp_dir = os.path.join(backup_tmp_dir, project['namespace']['name'])
+    clone_output_dir = os.path.join(backup_tmp_dir, project['namespace']['name'], project['name'] + ".git")
+    repository_url = project['http_url_to_repo'].replace("https://", "https://oauth2:" + CLONE_ACCESS_TOKEN + "@")
+    # repository_url = project['ssh_url_to_repo'
+    error = None
+
+    try:
+        os.mkdir(backup_tmp_dir)
+        os.mkdir(namespace_tmp_dir)
+    except FileExistsError:
+        pass
+
+    if os.path.exists(clone_output_dir):
+        try:
+            debug("Removing " + clone_output_dir)
+            shutil.rmtree(clone_output_dir)
+        except (OSError, PermissionError, FileNotFoundError) as e:
+            pass
+
+    git_clone_cmd = ["git", "clone", repository_url, clone_output_dir]
+    log("Cloning " + repository_url + " into " + clone_output_dir)
+
+    with subprocess.Popen(git_clone_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE) as git:
+        git.wait()
+        git_error = str(git.stderr.read()).lower()
+
+        if "fatal" in git_error or "error" in git_error:
+            error = git_error
+        else:
+            archive_directory(project, 'repository', clone_output_dir, output_basedir)
+
+    # removed temporary cloned repository
+    if os.path.exists(clone_output_dir):
+        try:
+            debug("Removing " + clone_output_dir)
+            shutil.rmtree(clone_output_dir)
+        except (OSError, PermissionError, FileNotFoundError) as e:
+            pass
+
+    if error:
+        raise CloneError(repository_url, error)
+
+
+def backup_local_data(project, output_basedir, repository_dir=REPOSITORY_DIR, upload_dir=UPLOAD_DIR):
+    """
+    Backup upload and wiki data locally for the given project
+    """
+    src_dirs = { "wiki": os.path.join(repository_dir, project['namespace']['name'], project['name'] + ".wiki.git"),
+                 "upload": os.path.join(upload_dir, project['namespace']['name'], project['name']) }
+
+    # zip all local components
+    for (component, directory) in src_dirs.items():
+        archive_directory(project, component, directory, output_basedir)
+
+
+def backup_snippets(project, output_basedir):
     """
     Backup snippets and their contents
     snippet contents must be backuped by additional api call
     """
     log(u"Backing up snippets from project %s [ID %s]" % (project['name'], project['id']))
 
-    snippets = fetch(api_url % (API_URL, project['id']))
+    snippets = fetch(PROJECT_COMPONENTS['snippets'] % (API_BASE_URL, project['id']))
 
-    dump(backup_dir, "snippets.json", snippets)
+    dump(snippets, output_basedir, "snippets.json")
 
     for snippet in snippets:
-        dump(backup_dir,
-             "snippet_%d_content.dump" % (snippet['id'],),
-             rest_api_call(GET_SNIPPET_CONTENT % (API_URL, project['id'], snippet['id']), method="GET").text)
+        dump(rest_api_call(GET_SNIPPET_CONTENT % (API_BASE_URL, project['id'], snippet['id']), method="GET").text,
+             output_basedir,
+             "snippet_%d_content.dump" % (snippet['id'],))
 
-        notes = fetch(NOTES_FOR_SNIPPET % (API_URL, project['id'], snippet['id']))
+        notes = fetch(NOTES_FOR_SNIPPET % (API_BASE_URL, project['id'], snippet['id']))
 
         if notes:
-            dump(backup_dir, "snippet_%d_notes.dump" % (snippet['id'],), notes)
+            dump(notes, output_basedir, "snippet_%d_notes.dump" % (snippet['id'],))
 
 
-def backup_issues(api_url, project, token, backup_dir):
+def backup_issues(project, output_basedir):
     """
     Backup all issues of a project
     issue notes must be backuped by additional api call
     """
     log(u"Backing up issues from project %s [ID %s]" % (project['name'], project['id']))
 
-    issues = fetch(api_url % (API_URL, project['id']))
+    issues = fetch(PROJECT_COMPONENTS['issues'] % (API_BASE_URL, project['id']))
 
-    dump(backup_dir, "issues.json", issues)
+    dump(issues, output_basedir, "issues.json")
 
     for issue in issues:
-        notes = fetch(NOTES_FOR_ISSUE % (API_URL, project['id'], issue['id']))
+        notes = fetch(NOTES_FOR_ISSUE % (API_BASE_URL, project['id'], issue['id']))
 
         if notes:
-            dump(backup_dir, "issue_%d_notes.dump" % (issue['id'],), notes)
+            dump(notes, output_basedir, "issue_%d_notes.dump" % (issue['id'],))
 
 
-def backup_user_metadata(user, output_basedir):
+def backup_user_metadata(user, backup_dir=BACKUP_DIR):
     """
     Backup all metadata including email addresses and SSH keys of a single user
     """
 
     if not type(user) == dict:
-        user = get_user(username)
+        user = get_user(user)
 
     if user:
-        backup_dir = os.path.join(output_basedir, "user_%s_%s" % (user['id'], user['username']))
-        if not os.path.exists(output_basedir): os.mkdir(output_basedir)
+        output_basedir = os.path.join(backup_dir, "user_%s_%s" % (user['id'], user['username']))
         if not os.path.exists(backup_dir): os.mkdir(backup_dir)
+        if not os.path.exists(output_basedir): os.mkdir(output_basedir)
 
         log(u"Backing up metadata of user %s [ID %s]" % (user["username"], user["id"]))
-        dump(backup_dir, "user.json", user)
-        dump(backup_dir, "projects.json", list(get_projects(user["username"])))
-        dump(backup_dir, "ssh.json", fetch(USER_SSHKEYS % (API_URL, user["id"])))
-        dump(backup_dir, "email.json", fetch(USER_EMAILS % (API_URL, user["id"])))
+        dump(user, output_basedir, "user.json")
+        dump(list(get_projects(user["username"])), output_basedir, "projects.json")
+        dump(fetch(USER_SSHKEYS % (API_BASE_URL, user["id"])), output_basedir, "ssh.json")
+        dump(fetch(USER_EMAILS % (API_BASE_URL, user["id"])), output_basedir, "email.json")
 
 
-def backup_project(project, repository_dir, upload_dir, backup_dir):
+def backup_project(project, output_basedir, queue):
     """
     Backup a single project
     """
-    dump(backup_dir, "project.json", project)
+    success = []
 
-    # shall we backup local data like repository and wiki?
-    if repository_dir:
-        success = backup_local_data(repository_dir, upload_dir, backup_dir, project)
+    if not os.path.exists(output_basedir): os.mkdir(output_basedir)
 
-        if not success and not project.get("retried"):
-            project["retried"] = True
-            queue.put(project)
+    dump(project, output_basedir, "project.json")
+
+    backup_repository(project, output_basedir)
+    backup_local_data(project, output_basedir)
 
     # backup metadata of each component
     for (component, api_url) in PROJECT_COMPONENTS.items():
         # issues
         if component == "issues" and \
            project.get(component + "_enabled") == True:
-            backup_issues(api_url, project, TOKEN, backup_dir)
+            backup_issues(project, output_basedir)
 
         # snippets
         elif component == "snippets" and \
            project.get(component + "_enabled") == True:
-            backup_snippets(api_url, project, backup_dir)
+            backup_snippets(project, output_basedir)
 
         # milestones are enabled if either issues or merge_requests are enabled
         # labels cannot be disabled therefore no labels_enabled field exists
@@ -203,25 +247,26 @@ def backup_project(project, repository_dir, upload_dir, backup_dir):
         elif component == "milestones" and \
              (project.get("issues_enabled") == True or project.get("merge_requests_enabled") == True):
             log(u"Backing up %s from project %s [ID %s]" % (component, project['name'], project['id']))
-            dump(backup_dir,
-                 component + ".json",
-                 fetch(api_url % (API_URL, project['id'])))
+            dump(fetch(api_url % (API_BASE_URL, project['id'])),
+                 output_basedir,
+                 component + ".json")
 
         elif project.get(component + "_enabled") and project.get(component + "_enabled") == True:
-            dump(backup_dir,
-                 component + ".json",
-                 fetch(api_url % (API_URL, project['id'])))
+            dump(fetch(api_url % (API_BASE_URL, project['id'])),
+                 output_basedir,
+                 component + ".json")
+
 
         elif component != "milestones" and \
              component != "snippets" and \
              component != "issues" and \
              project.get(component + "_enabled", "not_disabled") == "not_disabled":
-            dump(backup_dir,
-                 component + ".json",
-                 fetch(api_url % (API_URL, project['id'])))
+            dump(fetch(api_url % (API_BASE_URL, project['id'])),
+                 output_basedir,
+                 component + ".json")
 
 
-def backup(repository_dir, upload_dir, output_basedir, queue):
+def backup(queue,backup_dir):
     """
     Backup everything for the given project
     For every project create a dictionary with id_name as pattern
@@ -229,6 +274,15 @@ def backup(repository_dir, upload_dir, output_basedir, queue):
     """
     while not queue.empty():
         project = queue.get()
-        backup_dir = os.path.join(output_basedir, "%s_%s_%s" % (project['id'], project['namespace']['name'], project['name']))
-        if not os.path.exists(backup_dir): os.mkdir(backup_dir)
-        backup_project(project, repository_dir, upload_dir, backup_dir)
+        output_basedir = os.path.join(backup_dir, "%s_%s_%s" % (project['id'], project['namespace']['name'], project['name']))
+
+        try:
+            backup_project(project, output_basedir, queue)
+        except (Exception) as e:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback.print_exception(exc_type, exc_value, exc_traceback, limit=3, file=sys.stdout)
+            error(str(e))
+
+            if not project.get("retried"):
+                project["retried"] = True
+                queue.put(project)

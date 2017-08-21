@@ -18,6 +18,10 @@
 # You should have received a copy of the GNU General Public License.
 # If not, see <http://www.gnu.org/licenses/>.
 
+from gitlab_config import SERVER
+
+API_BASE_URL = "https://%s/api/v4" % (SERVER,)
+
 #
 # USER API
 #
@@ -69,3 +73,17 @@ EDIT_PROJECT_MEMBER = "%s/projects/%d/members/%d"
 DEL_PROJECT_MEMBER = "%s/projects/%d/members/%d"
 GET_NO_OF_PROJECTS = "%s/projects?per_page=%d&page=%d"
 PROTECT_BRANCH = "%s/projects/%d/repository/branches/%s/protect"
+
+GET_SNIPPET_CONTENT = "%s/projects/%d/snippets/%d/raw"
+NOTES_FOR_SNIPPET = "%s/projects/%s/snippets/%s/notes"
+NOTES_FOR_ISSUE = "%s/projects/%s/issues/%s/notes"
+ISSUE_EDIT = "%s/projects/%s/issues/%s"
+
+
+#
+# PERMISSION
+#
+
+VISIBILITY_PRIVATE=0
+VISIBILITY_INTERNAL=10
+VISIBILITY_PUBLIC=20

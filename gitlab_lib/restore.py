@@ -57,16 +57,16 @@ def restore_entry(backup_dir, project, entry):
     if entry['component'] == "snippets":
         restore_snippets(backup_dir, project, entry)
     else:
-        result = rest_api_call(PROJECT_COMPONENTS[entry['component']] % (API_URL, project['id']),
+        result = rest_api_call(PROJECT_COMPONENTS[entry['component']] % (API_BASE_URL, project['id']),
                                           prepare_restore_data(project, entry))
 
         if entry['component'] == "issues":
             result = result.json()
-            rest_api_call(ISSUE_EDIT % (API_URL, project['id'], result.get('id')),
+            rest_api_call(ISSUE_EDIT % (API_BASE_URL, project['id'], result.get('id')),
                                      prepare_restore_data(project, update_issue_metadata(entry)),
                                      "PUT")
             restore_notes(backup_dir,
-                          NOTES_FOR_ISSUE % (API_URL, project['id'], str(entry.get('id'))),
+                          NOTES_FOR_ISSUE % (API_BASE_URL, project['id'], str(entry.get('id'))),
                           project,
                           entry)
 
@@ -99,11 +99,11 @@ def restore_snippets(backup_dir, project, entry):
                                                                                            project['id'],
                                                                                            prepare_restore_data(project, entry)))
 
-            rest_api_call(PROJECT_COMPONENTS["snippets"] % (API_URL, project['id']),
+            rest_api_call(PROJECT_COMPONENTS["snippets"] % (API_BASE_URL, project['id']),
                           prepare_restore_data(project, entry))
 
             restore_notes(backup_dir,
-                          NOTES_FOR_SNIPPET % (API_URL, project['id'], str(entry.get('id'))),
+                          NOTES_FOR_SNIPPET % (API_BASE_URL, project['id'], str(entry.get('id'))),
                           project,
                           entry)
         else:
