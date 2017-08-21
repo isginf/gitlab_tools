@@ -71,7 +71,6 @@ def archive_directory(project, component, directory, output_basedir):
     Archivate directory to output_basedir
     """
     try_again = 3
-    success = False
 
     while try_again:
         if os.path.exists(directory):
@@ -82,24 +81,16 @@ def archive_directory(project, component, directory, output_basedir):
                     archivate(directory, output_basedir, "upload_")
                 else:
                     archivate(directory, output_basedir)
+
+                try_again = False
             except (tarfile.TarError, OSError) as e:
                 exc_type, exc_value, exc_traceback = sys.exc_info()
                 traceback.print_exception(exc_type, exc_value, exc_traceback, limit=3, file=sys.stdout)
                 error("Backup of %s from project %s [ID %d]: %s" % (component, project['name'], project['id']), str(e))
-                success = False
+                try_again = try_again - 1
         else:
             log("No %s found for project %s [ID %s]" % (component, project['name'], project['id']))
-            success = True
-
-        if success:
             try_again = False
-        else:
-            try_again = try_again - 1
-
-            if not try_again:
-                log("Failed to backup %s %s" % (project['name'], component))
-
-    return success
 
 
 def backup_repository(project, output_basedir, tmp_dir=TMP_DIR):
@@ -148,6 +139,8 @@ def backup_repository(project, output_basedir, tmp_dir=TMP_DIR):
                     error = git_error
                 else:
                     archive_directory(project, 'repository', clone_output_dir, output_basedir)
+
+            os.chdir("/")
 
     # removed temporary cloned repository
     if os.path.exists(clone_output_dir):
