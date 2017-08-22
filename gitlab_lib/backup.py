@@ -93,15 +93,20 @@ def archive_directory(project, component, directory, output_basedir):
             try_again = False
 
 
-def backup_repository(project, output_basedir, tmp_dir=TMP_DIR):
+def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tmp_dir=TMP_DIR):
     """
     Backup repository as LFS resolved work tree copy
     """
+    repo_dir = os.path.join(repository_dir, project['namespace']['name'], project['name'] + ".git")
+
+    if not os.path.exists(repo_dir):
+        log("No repository found for project %s [ID %s]" % (project['name'], project['id']))
+        return None
+
     backup_tmp_dir = os.path.join(tmp_dir, "backup")
     namespace_tmp_dir = os.path.join(backup_tmp_dir, project['namespace']['name'])
     clone_output_dir = os.path.join(backup_tmp_dir, project['namespace']['name'], project['name'] + ".git")
     repository_url = project['http_url_to_repo'].replace("https://", "https://oauth2:" + CLONE_ACCESS_TOKEN + "@")
-    # repository_url = project['ssh_url_to_repo'
     error = None
 
     try:
