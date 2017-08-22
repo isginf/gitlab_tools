@@ -124,11 +124,11 @@ def make_request(method="GET", rest_url=None, data={}, ignore_errors=False):
         result = rest_api_call(rest_url, data=data, method=method).json()
     except (TypeError, ValueError) as e:
         if not ignore_errors:
-            raise WebError(url, data, method, "Call to url %s failed: %s\n" % (rest_url, str(e)))
+            raise WebError(rest_url, data, method, "Call to url %s failed: %s\n" % (rest_url, str(e)))
 
     if type(result) == dict and result.get('message'):
         if not ignore_errors:
-            raise WebError(url, data, method, "Request to %s failed: %s\n" %(rest_url, result.get('message')))
+            raise WebError(rest_url, data, method, "Request to %s failed: %s\n" %(rest_url, result.get('message')))
 
         result = []
 
