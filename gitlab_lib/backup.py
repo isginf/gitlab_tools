@@ -26,6 +26,7 @@ import os
 import sys
 import json
 import shutil
+import shlex
 import tarfile
 import traceback
 import subprocess
@@ -83,9 +84,7 @@ def archive_directory(project, component, directory, output_basedir):
                     archivate(directory, output_basedir)
 
                 try_again = False
-            except (tarfile.TarError, OSError) as e:
-                exc_type, exc_value, exc_traceback = sys.exc_info()
-                traceback.print_exception(exc_type, exc_value, exc_traceback, limit=3, file=sys.stdout)
+            except ArchiveError as e:
                 error("Backup of %s from project %s [ID %d]: %s" % (component, project['name'], project['id']), str(e))
                 try_again = try_again - 1
         else:
@@ -105,7 +104,7 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
 
     backup_tmp_dir = os.path.join(tmp_dir, "backup")
     namespace_tmp_dir = os.path.join(backup_tmp_dir, project['namespace']['name'])
-    clone_output_dir = os.path.join(backup_tmp_dir, project['namespace']['name'], project['name'] + ".git")
+    clone_output_dir = os.path.join(backup_tmp_dir, project['namespace']['name'], shlex.quote(project['name']) + ".git")
     repository_url = project['http_url_to_repo'].replace("https://", "https://oauth2:" + CLONE_ACCESS_TOKEN + "@")
     error = None
 
@@ -249,10 +248,7 @@ def backup_project(project, output_basedir, queue):
     except CloneError as e:
         error(str(e))
 
-    try:
-        backup_local_data(project, output_basedir)
-    except ArchiveError as e:
-        error(str(e))
+    backup_local_data(project, output_basedir)
 
     # backup metadata of each component
     for (component, api_url) in PROJECT_COMPONENTS.items():
