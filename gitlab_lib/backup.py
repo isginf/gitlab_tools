@@ -129,9 +129,13 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
         git.wait()
         git_error = str(git.stderr.read()).lower()
 
-        if "fatal" in git_error or "error" in git_error:
+        # when cloning an empty repo via https git returns 403 so we have to check if the cloning
+        # was successful but empty or if it really failed
+        if ("fatal" in git_error or "error" in git_error) and \
+           not ("403" in git_error and os.path.exists(clone_output_dir)):
             error = git_error
-        else:
+
+        if not error:
             # Remove git remote otherwise it contains our admin access token
             os.chdir(clone_output_dir)
             git_rm_remote = ["git", "remote", "rm" , "origin"]
@@ -205,10 +209,11 @@ def backup_issues(project, output_basedir):
     dump(issues, output_basedir, "issues.json")
 
     for issue in issues:
-        notes = fetch(NOTES_FOR_ISSUE % (API_BASE_URL, project['id'], issue['id']))
+        if int(issue['user_notes_count']) > 0:
+            notes = fetch(NOTES_FOR_ISSUE % (API_BASE_URL, project['id'], issue['id']))
 
-        if notes:
-            dump(notes, output_basedir, "issue_%d_notes.dump" % (issue['id'],))
+            if notes:
+                dump(notes, output_basedir, "issue_%d_notes.dump" % (issue['id'],))
 
 
 def backup_user_metadata(user, backup_dir=BACKUP_DIR):
