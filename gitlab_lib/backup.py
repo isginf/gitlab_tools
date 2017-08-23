@@ -129,10 +129,8 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
         git.wait()
         git_error = str(git.stderr.read()).lower()
 
-        # when cloning an empty repo via https git returns 403 so we have to check if the cloning
-        # was successful but empty or if it really failed
-        if ("fatal" in git_error or "error" in git_error) and \
-           not ("403" in git_error and os.path.exists(clone_output_dir)):
+        # when cloning an empty repo via https git returns 403 :(
+        if ("fatal" in git_error or "error" in git_error) and not "error: 403" in git_error:
             error = git_error
 
         if not error:
@@ -209,11 +207,10 @@ def backup_issues(project, output_basedir):
     dump(issues, output_basedir, "issues.json")
 
     for issue in issues:
-        if int(issue['user_notes_count']) > 0:
-            notes = fetch(NOTES_FOR_ISSUE % (API_BASE_URL, project['id'], issue['id']))
+        notes = fetch(NOTES_FOR_ISSUE % (API_BASE_URL, project['id'], issue['iid']))
 
-            if notes:
-                dump(notes, output_basedir, "issue_%d_notes.dump" % (issue['id'],))
+        if notes:
+            dump(notes, output_basedir, "issue_%d_notes.dump" % (issue['iid'],))
 
 
 def backup_user_metadata(user, backup_dir=BACKUP_DIR):
@@ -246,44 +243,54 @@ def backup_project(project, output_basedir, queue):
 
     dump(project, output_basedir, "project.json")
 
-    backup_repository(project, output_basedir)
-    backup_local_data(project, output_basedir)
+    try:
+        backup_repository(project, output_basedir)
+    except CloneError as e:
+        error(str(e))
+
+    try:
+        backup_local_data(project, output_basedir)
+    except ArchiveError as e:
+        error(str(e))
 
     # backup metadata of each component
     for (component, api_url) in PROJECT_COMPONENTS.items():
-        # issues
-        if component == "issues" and \
-           project.get(component + "_enabled") == True:
-            backup_issues(project, output_basedir)
+        try:
+            # issues
+            if component == "issues" and \
+               project.get(component + "_enabled") == True:
+                backup_issues(project, output_basedir)
 
-        # snippets
-        elif component == "snippets" and \
-           project.get(component + "_enabled") == True:
-            backup_snippets(project, output_basedir)
+            # snippets
+            elif component == "snippets" and \
+               project.get(component + "_enabled") == True:
+                backup_snippets(project, output_basedir)
 
-        # milestones are enabled if either issues or merge_requests are enabled
-        # labels cannot be disabled therefore no labels_enabled field exists
-        # otherwise check if current component is enabled in project
-        elif component == "milestones" and \
-             (project.get("issues_enabled") == True or project.get("merge_requests_enabled") == True):
-            log(u"Backing up %s from project %s [ID %s]" % (component, project['name'], project['id']))
-            dump(fetch(api_url % (API_BASE_URL, project['id'])),
-                 output_basedir,
-                 component + ".json")
+            # milestones are enabled if either issues or merge_requests are enabled
+            # labels cannot be disabled therefore no labels_enabled field exists
+            # otherwise check if current component is enabled in project
+            elif component == "milestones" and \
+                 (project.get("issues_enabled") == True or project.get("merge_requests_enabled") == True):
+                log(u"Backing up %s from project %s [ID %s]" % (component, project['name'], project['id']))
+                dump(fetch(api_url % (API_BASE_URL, project['id'])),
+                     output_basedir,
+                     component + ".json")
 
-        elif project.get(component + "_enabled") and project.get(component + "_enabled") == True:
-            dump(fetch(api_url % (API_BASE_URL, project['id'])),
-                 output_basedir,
-                 component + ".json")
+            elif project.get(component + "_enabled") and project.get(component + "_enabled") == True:
+                dump(fetch(api_url % (API_BASE_URL, project['id'])),
+                     output_basedir,
+                     component + ".json")
 
 
-        elif component != "milestones" and \
-             component != "snippets" and \
-             component != "issues" and \
-             project.get(component + "_enabled", "not_disabled") == "not_disabled":
-            dump(fetch(api_url % (API_BASE_URL, project['id'])),
-                 output_basedir,
-                 component + ".json")
+            elif component != "milestones" and \
+                 component != "snippets" and \
+                 component != "issues" and \
+                 project.get(component + "_enabled", "not_disabled") == "not_disabled":
+                dump(fetch(api_url % (API_BASE_URL, project['id'])),
+                     output_basedir,
+                     component + ".json")
+        except WebError as e:
+            error(str(e))
 
 
 def backup(queue,backup_dir):
