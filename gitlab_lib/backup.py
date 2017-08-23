@@ -132,8 +132,7 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
         # when cloning an empty repo via https git returns 403 :(
         if ("fatal" in git_error or "error" in git_error) and not "error: 403" in git_error:
             error = git_error
-
-        if not error:
+        elif not "error: 403" in git_error:
             # Remove git remote otherwise it contains our admin access token
             os.chdir(clone_output_dir)
             git_rm_remote = ["git", "remote", "rm" , "origin"]
@@ -148,6 +147,8 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
                     archive_directory(project, 'repository', clone_output_dir, output_basedir)
 
             os.chdir("/")
+        else:
+            log("Repository of project %s [ID %d] seems to be empty" % (project['name'], project['id']))
 
     # removed temporary cloned repository
     if os.path.exists(clone_output_dir):
