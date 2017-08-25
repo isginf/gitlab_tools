@@ -54,15 +54,26 @@ def archivate(src_dir, dest_dir, prefix=""):
     """
     Zip src_dir to dest_dir
     """
-    filename = "%s%s.tgz" % (prefix, os.path.basename(src_dir))
+    filename = os.path.join(dest_dir, "%s%s.tgz" % (prefix, os.path.basename(src_dir)))
 
     try:
-        tar = tarfile.open(os.path.join(dest_dir, filename), "w:gz")
+        tar = tarfile.open(filename, "w:gz")
         tar.add(src_dir, arcname=".", recursive=True)
         tar.close()
     except (FileExistsError):
         os.unlink(filename)
         archivate(src_dir, filename)
+    # This may occur with strange file or directory names
+    except (FileNotFoundError) as e:
+        error("Failed to tar %s with Python lib. Trying to use console tar. Error was %s" % (src_dir, str(e)))
+        tar_cmd = "tar xvfz %s %s" % (filename, src_dir)
+
+        with subprocess.Popen(tar_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE) as tar:
+            tar.wait()
+            tar_error = str(tar.stderr.read()).lower()
+
+            if "fatal" in tar_error or "error" in tar_error:
+                raise ArchiveError(src_dir, dest_dir, tar_error)
     except (tarfile.TarError, OSError) as e:
         raise ArchiveError(src_dir, dest_dir, str(e))
 

@@ -29,7 +29,7 @@ import requests
 from multiprocessing import Process
 from .api import API_BASE_URL
 from .exception import WebError, ReadError, ParseError
-from gitlab_config import SERVER, TOKEN, CLONE_ACCESS_TOKEN, REPOSITORY_DIR, BACKUP_DIR, UPLOAD_DIR, TMP_DIR
+from gitlab_config import SERVER, TOKEN, CLONE_ACCESS_TOKEN, REPOSITORY_DIR, BACKUP_DIR, UPLOAD_DIR, TMP_DIR, ERROR_LOG, LOG_ERRORS
 
 #
 # Configuration
@@ -55,6 +55,10 @@ def error(message):
     Log an error message
     """
     log(">>> ERROR: " + message)
+
+    if LOG_ERRORS:
+        with open(ERROR_LOG, "a") as err:
+            err.write(message + "\n")
 
 
 def info(message):
