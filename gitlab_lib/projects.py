@@ -99,7 +99,10 @@ def get_project_metadata(project):
     try:
         data.append( fetch(PROJECT_METADATA % (API_BASE_URL, int(project))) )
     except ValueError:
-        data.append( fetch(PROJECT_METADATA % (API_BASE_URL, project)) )
+        projects = fetch(PROJECT_SEARCH % (API_BASE_URL, project))
+
+        if len(projects) > 0:
+            data.append( fetch(PROJECT_METADATA % (API_BASE_URL, int(projects[0]["id"]))) )
 
     return data
 
