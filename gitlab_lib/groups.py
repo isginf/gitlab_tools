@@ -73,16 +73,22 @@ def add_group_member(group, user, access_level=permissions.ACCESS_LEVEL_GUEST):
                                                          "access_level": access_level})
 
 
-def get_group(groupname=None):
+def get_group(group=None):
     """
     Get metadata of a single group
+    Parameter group can be name or id
     """
-    result = fetch(GROUP_BY_GROUPNAME % (API_BASE_URL, groupname))
 
-    if result:
-        return result[0]
-    else:
-        return None
+    try:
+        int(group)
+        return fetch(GROUP_BY_ID % (API_BASE_URL, group))
+    except (TypeError, ValueError):
+        result = fetch(GROUP_BY_GROUPNAME % (API_BASE_URL, group))
+
+        if result:
+            return result[0]
+        else:
+            return None
 
 
 def get_group_projects(group):

@@ -46,6 +46,7 @@ ADD_GROUP_MEMBER = "%s/groups/%d/members"
 GROUP_MEMBERS = "%s/groups/%s/members"
 GROUP_PROJECTS = "%s/groups/%d/projects"
 GROUP_BY_GROUPNAME = "%s/groups?search=%s"
+GROUP_BY_ID = "%s/groups/%d"
 
 
 #
