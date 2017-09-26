@@ -141,7 +141,7 @@ def __block_or_unblock(url, user):
         user_dict = get_user(user)
 
         if user_dict:
-            result = rest_api_call(url % (API_BASE_URL, user_dict["id"]), {"id": user_dict["id"]}, method="PUT")
+            result = rest_api_call(url % (API_BASE_URL, user_dict["id"]), {"id": user_dict["id"]}, method="POST")
 
     return result
 
