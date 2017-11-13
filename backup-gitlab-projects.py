@@ -47,6 +47,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-d", "--debug", help="Show debug messages", action="store_true")
 parser.add_argument("-n", "--number", help="Number of processes", type=int, default="4")
 parser.add_argument("-o", "--output", help="Output directory for backups", default=gitlab_config.BACKUP_DIR)
+parser.add_argument("-p", "--project", help="Backup projects found by given id or name")
 parser.add_argument("-q", "--quiet", help="No messages execpt errors", action="store_true")
 parser.add_argument("-r", "--repository", help="Repository directory", default=gitlab_config.REPOSITORY_DIR)
 parser.add_argument("-s", "--server", help="Gitlab server name", default=gitlab_config.SERVER)
@@ -94,9 +95,15 @@ if not os.path.exists(gitlab_lib.core.BACKUP_DIR):
 if args.user:
     gitlab_lib.backup_user_metadata(args.user)
 
+# Backup only projects found by given project id or name
+if args.project:
+    for project in gitlab_lib.get_project_metadata(args.project):
+        queue.put(project)
+
 # Backup all projects or only the projects of a single user
-for project in gitlab_lib.get_projects(args.user, personal=True):
-    queue.put(project)
+else:
+    for project in gitlab_lib.get_projects(args.user, personal=True):
+        queue.put(project)
 
 # Start processes and let em backup every project
 for process in range(int(args.number)):
