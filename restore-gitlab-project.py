@@ -81,6 +81,7 @@ def fill_restore_queue(project, component):
         if backup:
             for entry in backup:
                 entry['component'] = component
+                entry['project_id'] = project['id']
                 queue.put(entry)
                 restored = True
 
@@ -126,10 +127,12 @@ if len(project_data) > 1:
 if args.component:
     fill_restore_queue(project_data[0], args.component)
 
-# Restore all
+# Restore all (but issues at the end, they link to lots of other components)
 else:
-    for component in gitlab_lib.PROJECT_COMPONENTS.keys():
+    for component in filter(lambda x: x != "issues", gitlab_lib.PROJECT_COMPONENTS.keys()):
         fill_restore_queue(project_data[0], component)
+
+    fill_restore_queue(project_data[0], "issues")
 
 # spawn some processes to do the actual restore
 nr_of_processes = args.number
@@ -138,6 +141,6 @@ if queue.qsize() < args.number:
     nr_of_processes = queue.qsize()
 
 for process in range(nr_of_processes):
-    processes.append( gitlab_lib.create_process(gitlab_lib.restore_entry, (args.backup_dir, project_data[0], queue)) )
+    processes.append( gitlab_lib.create_process(gitlab_lib.restore, (args.backup_dir, project_data[0], queue)) )
 
 sys.exit(0)

@@ -98,21 +98,24 @@ def rest_api_call(url, data={}, method="POST"):
         else:
             response = requests.post(url, data=data, headers={"PRIVATE-TOKEN" : TOKEN})
     except (requests.exceptions.ConnectionError, requests.exceptions.RequestException) as e:
-        error = "Request to url %s failed: %s" % (url, str(e))
+        error = "Request to url %s failed: %s\n%s" % (url, response.text, str(e))
         response = None
     except requests.exceptions.Timeout as e:
-        error = "Request to url %s timedout: %s" % (url, str(e))
+        error = "Request to url %s timedout: %s\n%s" % (url, response.text, str(e))
         response = None
 
     if response.status_code == 401:
         error("Request to url %s unauthorized! %s" % (url, response.text))
         response = None
 
-    if error:
-        raise WebError(url, data, method, str(e))
-
     if response:
         debug("RESPONSE " + str(response.status_code) + " " + response.text + "\n")
+    else:
+        debug("NO RESPONSE\n")
+
+    if error:
+        debug("ERROR " + error)
+        raise WebError(url, data, method, str(e))
 
     return response
 

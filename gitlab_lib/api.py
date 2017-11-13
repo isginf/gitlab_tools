@@ -77,8 +77,13 @@ PROTECT_BRANCH = "%s/projects/%d/repository/branches/%s/protect"
 
 GET_SNIPPET_CONTENT = "%s/projects/%d/snippets/%d/raw"
 NOTES_FOR_SNIPPET = "%s/projects/%s/snippets/%s/notes"
-NOTES_FOR_ISSUE = "%s/projects/%s/issues/%s/notes"
-ISSUE_EDIT = "%s/projects/%s/issues/%s"
+
+NOTES_FOR_ISSUES = "%s/projects/%s/issues/%s/notes"
+MERGE_REQUESTS_FOR_ISSUES = "%s/projects/%d/issues/%d/closed_by"
+ISSUES_EDIT = "%s/projects/%s/issues/%s"
+
+NOTES_FOR_MERGE_REQUESTS = "%s/projects/%s/merge_requests/%s/notes"
+MERGE_REQUESTS_EDIT = "%s/projects/%s/merge_requests/%s"
 
 
 #

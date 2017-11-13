@@ -50,57 +50,54 @@ def dump(data, output_basedir, filename):
     out.close()
 
 
-def archivate(src_dir, dest_dir, prefix=""):
+def archivate(src_dir, dest_dir, prefix="", console=False):
     """
     Zip src_dir to dest_dir
     """
     filename = os.path.join(dest_dir, "%s%s.tgz" % (prefix, os.path.basename(src_dir)))
+    error_msg = None
 
     try:
-        tar = tarfile.open(filename, "w:gz")
-        tar.add(src_dir, arcname=".", recursive=True)
-        tar.close()
+        if console:
+            tar_cmd = "tar xvfz %s %s" % (filename, src_dir)
+
+            with subprocess.Popen(tar_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE) as tar:
+                tar.wait()
+                tar_error = str(tar.stderr.read()).lower()
+
+                if "fatal" in tar_error or "error" in tar_error:
+                    error_msg = tar_error
+        else:
+            tar = tarfile.open(filename, "w:gz")
+            tar.add(src_dir, arcname=".", recursive=True)
+            tar.close()
     except (FileExistsError):
         os.unlink(filename)
-        archivate(src_dir, filename)
-    # This may occur with strange file or directory names
+        archivate(src_dir, dest_dir, prefix, console)
     except (FileNotFoundError) as e:
-        error("Failed to tar %s with Python lib. Trying to use console tar. Error was %s" % (src_dir, str(e)))
-        tar_cmd = "tar xvfz %s %s" % (filename, src_dir)
-
-        with subprocess.Popen(tar_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE) as tar:
-            tar.wait()
-            tar_error = str(tar.stderr.read()).lower()
-
-            if "fatal" in tar_error or "error" in tar_error:
-                raise ArchiveError(src_dir, dest_dir, tar_error)
+        log("Failed to tar %s with Python lib. Trying to use console tar. Error was %s" % (src_dir, str(e)))
     except (tarfile.TarError, OSError) as e:
-        raise ArchiveError(src_dir, dest_dir, str(e))
+        error_msg = str(e)
+
+    if error_msg and not console:
+        archivate(src_dir, dest_dir, prefix, console=True)
+    elif error_msg:
+        error(error_msg)
 
 
 def archive_directory(project, component, directory, output_basedir):
     """
     Archivate directory to output_basedir
     """
-    try_again = 3
+    if os.path.exists(directory):
+        log("Backing up %s from project %s [ID %s]" % (component, project['name'], project['id']))
 
-    while try_again:
-        if os.path.exists(directory):
-            log("Backing up %s from project %s [ID %s]" % (component, project['name'], project['id']))
-
-            try:
-                if component == "upload":
-                    archivate(directory, output_basedir, "upload_")
-                else:
-                    archivate(directory, output_basedir)
-
-                try_again = False
-            except ArchiveError as e:
-                error("Backup of %s from project %s [ID %d]: %s" % (component, project['name'], project['id']), str(e))
-                try_again = try_again - 1
+        if component == "upload":
+            archivate(directory, output_basedir, "upload_")
         else:
-            log("No %s found for project %s [ID %s]" % (component, project['name'], project['id']))
-            try_again = False
+            archivate(directory, output_basedir)
+    else:
+        log("No %s found for project %s [ID %s]" % (component, project['name'], project['id']))
 
 
 def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tmp_dir=TMP_DIR):
@@ -130,7 +127,7 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
             debug("Removing " + clone_output_dir)
             shutil.rmtree(clone_output_dir)
         except (OSError, PermissionError, FileNotFoundError) as e:
-            pass
+            raise CloneError(repository_url, str(e))
 
     git_clone_cmd = ["git", "clone", repository_url, clone_output_dir]
     log("Cloning " + repository_url + " into " + clone_output_dir)
@@ -151,10 +148,10 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
                 git.wait()
                 git_error = str(git.stderr.read()).lower()
 
-                if "fatal" in git_error or "error" in git_error:
-                    error = git_error
-                else:
-                    archive_directory(project, 'repository', clone_output_dir, output_basedir)
+            if "fatal" in git_error or "error" in git_error:
+                error = git_error
+            else:
+                archive_directory(project, 'repository', clone_output_dir, output_basedir)
 
             os.chdir("/")
         else:
@@ -211,6 +208,9 @@ def backup_issues(project, output_basedir):
     Backup all issues of a project
     issue notes must be backuped by additional api call
     """
+    issue_attachments = { "notes": NOTES_FOR_ISSUES,
+                          "merge_requests" : MERGE_REQUESTS_FOR_ISSUES }
+
     log(u"Backing up issues from project %s [ID %s]" % (project['name'], project['id']))
 
     issues = fetch(PROJECT_COMPONENTS['issues'] % (API_BASE_URL, project['id']))
@@ -218,10 +218,11 @@ def backup_issues(project, output_basedir):
     dump(issues, output_basedir, "issues.json")
 
     for issue in issues:
-        notes = fetch(NOTES_FOR_ISSUE % (API_BASE_URL, project['id'], issue['iid']))
+        for (attachment, api_url) in issue_attachments.items():
+            data = fetch(api_url % (API_BASE_URL, project['id'], issue['iid']))
 
-        if notes:
-            dump(notes, output_basedir, "issue_%d_notes.dump" % (issue['iid'],))
+            if data:
+                dump(data, output_basedir, "issues_%d_%s.dump" % (issue['id'], attachment))
 
 
 def backup_user_metadata(user, backup_dir=BACKUP_DIR):
@@ -253,52 +254,43 @@ def backup_project(project, output_basedir, queue):
     if not os.path.exists(output_basedir): os.mkdir(output_basedir)
 
     dump(project, output_basedir, "project.json")
-
-    try:
-        backup_repository(project, output_basedir)
-    except CloneError as e:
-        error(str(e))
-
+    backup_repository(project, output_basedir)
     backup_local_data(project, output_basedir)
 
     # backup metadata of each component
     for (component, api_url) in PROJECT_COMPONENTS.items():
-        try:
-            # issues
-            if component == "issues" and \
-               project.get(component + "_enabled") == True:
-                backup_issues(project, output_basedir)
+        # issues
+        if component == "issues" and \
+            project.get(component + "_enabled") == True:
+            backup_issues(project, output_basedir)
 
-            # snippets
-            elif component == "snippets" and \
-               project.get(component + "_enabled") == True:
-                backup_snippets(project, output_basedir)
+        # snippets
+        elif component == "snippets" and \
+            project.get(component + "_enabled") == True:
+            backup_snippets(project, output_basedir)
 
-            # milestones are enabled if either issues or merge_requests are enabled
-            # labels cannot be disabled therefore no labels_enabled field exists
-            # otherwise check if current component is enabled in project
-            elif component == "milestones" and \
-                 (project.get("issues_enabled") == True or project.get("merge_requests_enabled") == True):
-                log(u"Backing up %s from project %s [ID %s]" % (component, project['name'], project['id']))
-                dump(fetch(api_url % (API_BASE_URL, project['id'])),
-                     output_basedir,
-                     component + ".json")
+        # milestones are enabled if either issues or merge_requests are enabled
+        # labels cannot be disabled therefore no labels_enabled field exists
+        # otherwise check if current component is enabled in project
+        elif component == "milestones" and \
+             (project.get("issues_enabled") == True or project.get("merge_requests_enabled") == True):
+            log(u"Backing up %s from project %s [ID %s]" % (component, project['name'], project['id']))
+            dump(fetch(api_url % (API_BASE_URL, project['id'])),
+                 output_basedir,
+                 component + ".json")
 
-            elif project.get(component + "_enabled") and project.get(component + "_enabled") == True:
-                dump(fetch(api_url % (API_BASE_URL, project['id'])),
-                     output_basedir,
-                     component + ".json")
+        elif project.get(component + "_enabled") and project.get(component + "_enabled") == True:
+            dump(fetch(api_url % (API_BASE_URL, project['id'])),
+                 output_basedir,
+                 component + ".json")
 
-
-            elif component != "milestones" and \
-                 component != "snippets" and \
-                 component != "issues" and \
-                 project.get(component + "_enabled", "not_disabled") == "not_disabled":
-                dump(fetch(api_url % (API_BASE_URL, project['id'])),
-                     output_basedir,
-                     component + ".json")
-        except WebError as e:
-            error(str(e))
+        elif component != "milestones" and \
+             component != "snippets" and \
+             component != "issues" and \
+             project.get(component + "_enabled", "not_disabled") == "not_disabled":
+            dump(fetch(api_url % (API_BASE_URL, project['id'])),
+                 output_basedir,
+                 component + ".json")
 
 
 def backup(queue,backup_dir):
@@ -311,13 +303,16 @@ def backup(queue,backup_dir):
         project = queue.get()
         output_basedir = os.path.join(backup_dir, "%s_%s_%s" % (project['id'], project['namespace']['name'], project['name']))
 
+        if not project.get("retried"):
+            project["retried"] = 3
+
         try:
             backup_project(project, output_basedir, queue)
-        except (Exception) as e:
+        except (ArchiveError, CloneError, WebError) as e:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             traceback.print_exception(exc_type, exc_value, exc_traceback, limit=3, file=sys.stdout)
             error(str(e))
 
-            if not project.get("retried"):
-                project["retried"] = True
+            if project.get("retried") > 0:
+                project["retried"] = project["retried"] - 1
                 queue.put(project)
