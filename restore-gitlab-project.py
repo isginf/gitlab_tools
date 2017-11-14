@@ -127,9 +127,26 @@ try:
     else:
         project_data = result[0]
 
-# Got project name? Create it
 except ValueError:
+    pass
+
+# Got project name? Create it
+if not project_data:
     project_data= gitlab_lib.restore_project(args.backup_dir, args.project)
+
+# Restore repository and wiki
+if args.repository:
+    backup_archive = os.path.join(args.backup_dir, args.project + ".git.tgz")
+
+    if os.path.exists(backup_archive):
+        gitlab_lib.log("Restoring repository " + backup_archive)
+        gitlab_lib.restore_repository(backup_archive, args.repository, args.project, ".git")
+
+    backup_archive = os.path.join(args.backup_dir, args.project + ".wiki.git.tgz")
+
+    if os.path.exists(backup_archive):
+        gitlab_lib.log("Restoring repository " + backup_archive)
+        gitlab_lib.restore_repository(backup_archive, args.repository, args.project, ".wiki.git")
 
 # Restore only one component?
 if args.component:

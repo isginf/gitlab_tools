@@ -51,12 +51,7 @@ for USER in $(cat userlist.txt); do ./gitlab-meta-util.py -o users -i $USER -p p
 
 ### Restore a whole project
 
-`tar xvf /my/backup/dir/<project>/<project>.git.tgz
-tar xvf /my/backup/dir/<project>/<project>.wiki.git.tgz
-tar xvf /my/backup/dir/<project>/upload_<project>.tgz
-chown -R git:git *
-
-restore-gitlab-project.py -b /my/backup/dir/<project> -p <target_project_name>`
+`restore-gitlab-project.py -b /my/backup/dir/<project> -p <target_project_name> -r <path_to_repositories_plus_namespace>`
 
 
 ## Quota hook installation
@@ -77,16 +72,9 @@ if GitlabAccess.new(repo_path, key_id, refs, protocol).exec &&
     QuotaHook.new.pre_receive(repo_path, key_id, refs) &&
 ```
 
-
-## Known issues
-
-- Members are not restored automatically
-- Repository, wiki and upload archives must be extracted manually
-
-
 ## License
 
-Copyright 2016 ETH Zurich, ISGINF, Bastian Ballmann
+Copyright 2017 ETH Zurich, ISGINF, Bastian Ballmann
 E-Mail: bastian.ballmann@inf.ethz.ch
 Web: http://www.isg.inf.ethz.ch
 

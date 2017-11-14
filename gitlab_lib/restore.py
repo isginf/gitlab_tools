@@ -23,6 +23,7 @@
 #
 
 import os
+import tarfile
 import gitlab_lib
 from pipes import quote
 from .core import *
@@ -92,6 +93,19 @@ def close_entry_if_needed(entry, created_entry, project_id):
                           "PUT")
     except AttributeError:
         pass
+
+
+def restore_repository(backup_archive, repository_base_dir, project_name, suffix=".git"):
+    """
+    Unpack archive to repository dir
+    """
+    tar = tarfile.open(backup_archive, "r:gz")
+    repository_dir = os.path.join(repository_base_dir, project_name + suffix)
+
+    if not os.path.exists(repository_dir):
+        os.mkdir(repository_dir)
+
+    tar.extractall(repository_dir)
 
 
 def restore_project(backup_dir, project_name):
