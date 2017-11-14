@@ -1,5 +1,5 @@
 #
-# Central lib for Gitlab Tools
+# Central lib for Gitlab Tools - Projects code
 #
 # Copyright 2017 ETH Zurich, ISGINF, Bastian Ballmann
 # Email: bastian.ballmann@inf.ethz.ch
@@ -22,30 +22,24 @@
 # Loading modules
 #
 
-import pwd
-import grp
-import os
-
-import sys
-sys.path.append("..")
-
-#__all__ = ["groups", "projects", "permissions", "users"]
-#from . import *
-
-from .api import *
-from .backup import *
 from .core import *
-from .groups import *
-from .namespaces import *
-from .projects import *
-from .permissions import *
-from .restore import *
-from .users import *
+from .api import *
+from . import permissions
 
 
 #
-# Privilege separation
+# SUBROUTINES
 #
 
-if os.geteuid() == 0:
-    os.seteuid( pwd.getpwnam("git").pw_uid )
+def get_namespaces(search=None):
+    """
+    Return a list of all namespaces
+    """
+    namespaces = []
+
+    if search:
+        namespaces = fetch(SEARCH_NAMESPACE % (API_BASE_URL, search))
+    else:
+        namespaces = fetch(GET_NAMESPACES % (API_BASE_URL,))
+
+    return namespaces

@@ -45,22 +45,18 @@ for USER in $(cat userlist.txt); do ./gitlab-meta-util.py -o users -i $USER -p p
 
 `backup-gitlab-projects.py-r /path/to/repositories/ -o /my/backup/dir -U <username>`
 
-### Restore a single component of a project
+### Restore a single component of a project (component must be empty!)
 
 `restore-gitlab-project.py -b /my/backup/dir/<project> -p <project_name_or_id> -c milestones`
 
 ### Restore a whole project
-
-- Create the project in Gitlab
-- Make sure all components used are enabled
-- Members are not restored yet
 
 `tar xvf /my/backup/dir/<project>/<project>.git.tgz
 tar xvf /my/backup/dir/<project>/<project>.wiki.git.tgz
 tar xvf /my/backup/dir/<project>/upload_<project>.tgz
 chown -R git:git *
 
-restore-gitlab-project.py -b /my/backup/dir/<project> -p <target_project_name_or_id>`
+restore-gitlab-project.py -b /my/backup/dir/<project> -p <target_project_name>`
 
 
 ## Quota hook installation

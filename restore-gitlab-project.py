@@ -29,7 +29,7 @@ import os
 import sys
 import argparse
 from signal import signal, SIGINT
-from multiprocessing import Queue, Manager
+from multiprocessing import Queue
 import gitlab_config
 import gitlab_lib
 
@@ -56,7 +56,6 @@ if not args.server or not args.token or not args.project or not args.backup_dir:
     sys.exit(1)
 
 work_queue = Queue()
-result_dict = Manager().dict()
 processes = []
 gitlab_lib.core.DEBUG = args.debug
 gitlab_lib.TOKEN = args.token
@@ -113,27 +112,35 @@ if not os.path.exists(os.path.join(args.backup_dir, "project.json")):
     gitlab_lib.log(args.backup_dir + " does not look like a projects backup dir. No project.json file found!")
     sys.exit(1)
 
-# Lookup metadata of destination project
-project_data = gitlab_lib.get_project_metadata(args.project)
+# Got project id? Lookup metadata of project
+project_data = {}
 
-if not project_data or len(project_data) == 0:
-    gitlab_lib.log("Cannot find project " + args.project)
-    sys.exit(1)
+try:
+    result = gitlab_lib.get_project_metadata(int(args.project))
 
-if len(project_data) > 1:
-    gitlab_lib.log("Found more then one project for " + args.project)
-    sys.exit(1)
+    if result and len(result) == 0:
+        gitlab_lib.log("Project not found")
+        sys.exit(1)
+    elif result and len(result) > 1:
+        gitlab_lib.log("Found more than one project")
+        sys.exit(1)
+    else:
+        project_data = result[0]
+
+# Got project name? Create it
+except ValueError:
+    project_data= gitlab_lib.restore_project(args.backup_dir, args.project)
 
 # Restore only one component?
 if args.component:
-    fill_restore_queue(project_data[0], args.component)
+    fill_restore_queue(project_data, args.component)
 
 # Restore all (but issues at the end, they link to lots of other components)
 else:
     for component in filter(lambda x: x != "issues", gitlab_lib.PROJECT_COMPONENTS.keys()):
-        fill_restore_queue(project_data[0], component)
+        fill_restore_queue(project_data, component)
 
-    fill_restore_queue(project_data[0], "issues")
+    fill_restore_queue(project_data, "issues")
 
 # spawn some processes to do the actual restore
 nr_of_processes = args.number
@@ -142,6 +149,6 @@ if work_queue.qsize() < args.number:
     nr_of_processes = work_queue.qsize()
 
 for process in range(nr_of_processes):
-    processes.append( gitlab_lib.create_process(gitlab_lib.restore, (args.backup_dir, project_data[0], work_queue, result_dict)) )
+    processes.append( gitlab_lib.create_process(gitlab_lib.restore, (args.backup_dir, project_data, work_queue)) )
 
 sys.exit(0)

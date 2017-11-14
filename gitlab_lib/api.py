@@ -85,6 +85,9 @@ ISSUES_EDIT = "%s/projects/%s/issues/%s"
 NOTES_FOR_MERGE_REQUESTS = "%s/projects/%s/merge_requests/%s/notes"
 MERGE_REQUESTS_EDIT = "%s/projects/%s/merge_requests/%s"
 
+GET_NAMESPACES = "%s/namespaces"
+SEARCH_NAMESPACE = "%s/namespaces?search=%s"
+
 
 #
 # PERMISSION

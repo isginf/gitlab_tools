@@ -27,6 +27,8 @@ import gitlab_lib
 from pipes import quote
 from .core import *
 from .api import *
+from .projects import *
+from .namespaces import *
 
 
 #
@@ -92,10 +94,34 @@ def close_entry_if_needed(entry, created_entry, project_id):
         pass
 
 
-def restore_entry(result_dict, backup_dir, project, entry):
+def restore_project(backup_dir, project_name):
     """
-    Restore a single entry of a project component and if it has a iid,
-    store it in result_dict referenced to global id
+    Create the project, add it's members and activate components
+    Returns project metadata as dictionary
+    """
+    project = {}
+
+    project_data = parse_json(os.path.join(backup_dir, "project.json"))
+    log("Creating project %s in namespace %s" % (project_name, project_data['namespace']['name']))
+
+    del project_data['id']
+    project_data['namespace_id'] = project_data['namespace']['id']
+    del project_data['namespace']
+
+    project = create_project(project_name, prepare_restore_data(project_data.get('id'), project_data))
+
+    members = parse_json(os.path.join(backup_dir, "members.json"))
+
+    for member in members:
+        log("Adding member %s" % (member['username'],))
+        add_project_member(project['id'], member['id'], member['access_level'])
+
+    return project
+
+
+def restore_entry(backup_dir, project, entry):
+    """
+    Restore a single entry of a project component
     """
     log("Restoring %s [%s]" % (entry['component'], entry.get('name') or "ID " + str(entry.get('id'))))
 
@@ -116,15 +142,10 @@ def restore_entry(result_dict, backup_dir, project, entry):
         # merge request was restored beforehand and the iid must be lookuped with its global id
         if entry['component'] == "issues":
             merge_request = get_merge_request_for_issue(backup_dir, project, entry['id'])
-            entry['merge_request_to_resolve_discussions_of'] = result_dict.get(project['id'], {}).get(entry['component'], {}).get(merge_request['id'])
+            entry['merge_request_to_resolve_discussions_of'] = merge_request.get('iid')
 
         result = rest_api_call(PROJECT_COMPONENTS[entry['component']] % (API_BASE_URL, project['id']),
                                prepare_restore_data(project['id'], entry)).json()
-
-        # if component has iid save it for later linking
-        # in every project for every component save new iid to global component id
-        if result.get('iid'):
-            result_dict.setdefault(project['id'], {}).setdefault(entry['component'], {})[entry['id']] = result.get('iid')
 
         close_entry_if_needed(entry, result, project['id'])
 
@@ -139,13 +160,13 @@ def restore_entry(result_dict, backup_dir, project, entry):
             pass
 
 
-def restore(backup_dir, project, work_queue, result_dict):
+def restore(backup_dir, project, work_queue):
     """
-    Restore a project
+    Restore a projects components
     """
     while not work_queue.empty():
         entry = work_queue.get()
-        restore_entry(result_dict, backup_dir, project, entry)
+        restore_entry(backup_dir, project, entry)
 
 
 def restore_snippets(backup_dir, project, entry):

@@ -135,7 +135,7 @@ def make_request(method="GET", rest_url=None, data={}, ignore_errors=False):
 
     if type(result) == dict and result.get('message'):
         if not ignore_errors:
-            raise WebError(rest_url, data, method, "Request to %s failed: %s\n" %(rest_url, result.get('message')))
+            raise WebError(rest_url, data, method, "Request to %s failed: %s\n" % (rest_url, result.get('message')))
 
         result = []
 
