@@ -55,22 +55,27 @@ def prepare_restore_data(project_id, entry):
     return { k: v for (k, v) in entry.items() if k not in unwanted }
 
 
-def __get_entry_id(entry, entry_id):
+def __get_entry_id(entry, created_entry):
     """
     Helper function - Some entries are updated with iid instead of id
     """
-    if entry['component'] == "issues" or \
-       entry['component'] == "merge_requests":
-        entry_id = entry['iid']
+    entry_id = entry['id']
+
+    if (entry['component'] == "issues" or \
+       entry['component'] == "merge_requests") and \
+       created_entry.get('iid'):
+            entry_id = created_entry['iid']
+    elif created_entry.get('id'):
+        entry_id = created_entry['id']
 
     return entry_id
 
 
-def close_entry_if_needed(entry, entry_id, project_id):
+def close_entry_if_needed(entry, created_entry, project_id):
     """
     Some components have a state closed like issues or merge requests
     Check if we have an edit api url and execute it
-    entry is a dictionary with all data of entry, entry_id the id of the entry to close
+    entry is a dictionary with all data of entry, created_entrya http response dict from entry creation
     """
     try:
         if entry.get('state') == 'closed' and getattr(gitlab_lib.api, entry['component'].upper() + "_EDIT"):
@@ -80,16 +85,17 @@ def close_entry_if_needed(entry, entry_id, project_id):
             elif entry['component'] == "merge_requests":
                 entry['merge_request_iid'] = entry['iid']
 
-            rest_api_call(getattr(gitlab_lib.api, entry['component'].upper() + "_EDIT") % (API_BASE_URL, project_id, __get_entry_id(entry, entry_id)),
+            rest_api_call(getattr(gitlab_lib.api, entry['component'].upper() + "_EDIT") % (API_BASE_URL, project_id, __get_entry_id(entry, created_entry)),
                           prepare_restore_data(project_id, entry),
                           "PUT")
     except AttributeError:
         pass
 
 
-def restore_entry(backup_dir, project, entry):
+def restore_entry(result_dict, backup_dir, project, entry):
     """
-    Restore a single entry of a project component
+    Restore a single entry of a project component and if it has a iid,
+    store it in result_dict referenced to global id
     """
     log("Restoring %s [%s]" % (entry['component'], entry.get('name') or "ID " + str(entry.get('id'))))
 
@@ -106,32 +112,40 @@ def restore_entry(backup_dir, project, entry):
     else:
         entry = update_metadata(entry)
 
+        # If we restore issues, check if the issue had an attached merge request
+        # merge request was restored beforehand and the iid must be lookuped with its global id
         if entry['component'] == "issues":
-            entry['merge_request_to_resolve_discussions_of'] = get_merge_request_for_issue(backup_dir, project, entry['id']).get('id')
+            merge_request = get_merge_request_for_issue(backup_dir, project, entry['id'])
+            entry['merge_request_to_resolve_discussions_of'] = result_dict.get(project['id'], {}).get(entry['component'], {}).get(merge_request['id'])
 
         result = rest_api_call(PROJECT_COMPONENTS[entry['component']] % (API_BASE_URL, project['id']),
                                prepare_restore_data(project['id'], entry)).json()
 
-        close_entry_if_needed(entry, result.get('id'), project['id'])
+        # if component has iid save it for later linking
+        # in every project for every component save new iid to global component id
+        if result.get('iid'):
+            result_dict.setdefault(project['id'], {}).setdefault(entry['component'], {})[entry['id']] = result.get('iid')
+
+        close_entry_if_needed(entry, result, project['id'])
 
         # some components have notes attached. check if we have an edit api url and execute it
         try:
             if getattr(gitlab_lib.api, "NOTES_FOR_" + entry['component'].upper()):
                 restore_notes(backup_dir,
-                              getattr(gitlab_lib.api, "NOTES_FOR_" + entry['component'].upper()) % (API_BASE_URL, project['id'], __get_entry_id(entry, result['id'])),
+                              getattr(gitlab_lib.api, "NOTES_FOR_" + entry['component'].upper()) % (API_BASE_URL, project['id'], __get_entry_id(entry, result)),
                               project,
                               entry)
         except AttributeError:
             pass
 
 
-def restore(backup_dir, project, queue):
+def restore(backup_dir, project, work_queue, result_dict):
     """
     Restore a project
     """
-    while not queue.empty():
-        entry = queue.get()
-        restore_entry(backup_dir, project, entry)
+    while not work_queue.empty():
+        entry = work_queue.get()
+        restore_entry(result_dict, backup_dir, project, entry)
 
 
 def restore_snippets(backup_dir, project, entry):
@@ -153,11 +167,11 @@ def restore_snippets(backup_dir, project, entry):
                                                                                            project['id'],
                                                                                            prepare_restore_data(project['id'], entry)))
 
-            rest_api_call(PROJECT_COMPONENTS["snippets"] % (API_BASE_URL, project['id']),
-                          prepare_restore_data(project['id'], entry))
+            result = rest_api_call(PROJECT_COMPONENTS["snippets"] % (API_BASE_URL, project['id']),
+                                   prepare_restore_data(project['id'], entry))
 
             restore_notes(backup_dir,
-                          NOTES_FOR_SNIPPET % (API_BASE_URL, project['id'], str(entry.get('id'))),
+                          NOTES_FOR_SNIPPET % (API_BASE_URL, project['id'], __get_entry_id(entry, result)),
                           project,
                           entry)
         else:

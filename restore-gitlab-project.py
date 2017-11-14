@@ -29,7 +29,7 @@ import os
 import sys
 import argparse
 from signal import signal, SIGINT
-from multiprocessing import Queue
+from multiprocessing import Queue, Manager
 import gitlab_config
 import gitlab_lib
 
@@ -55,7 +55,8 @@ if not args.server or not args.token or not args.project or not args.backup_dir:
     print("You must at least specify --server, --token, --project and --backup_dir")
     sys.exit(1)
 
-queue = Queue()
+work_queue = Queue()
+result_dict = Manager().dict()
 processes = []
 gitlab_lib.core.DEBUG = args.debug
 gitlab_lib.TOKEN = args.token
@@ -82,7 +83,7 @@ def fill_restore_queue(project, component):
             for entry in backup:
                 entry['component'] = component
                 entry['project_id'] = project['id']
-                queue.put(entry)
+                work_queue.put(entry)
                 restored = True
 
     if not restored:
@@ -137,10 +138,10 @@ else:
 # spawn some processes to do the actual restore
 nr_of_processes = args.number
 
-if queue.qsize() < args.number:
-    nr_of_processes = queue.qsize()
+if work_queue.qsize() < args.number:
+    nr_of_processes = work_queue.qsize()
 
 for process in range(nr_of_processes):
-    processes.append( gitlab_lib.create_process(gitlab_lib.restore, (args.backup_dir, project_data[0], queue)) )
+    processes.append( gitlab_lib.create_process(gitlab_lib.restore, (args.backup_dir, project_data[0], work_queue, result_dict)) )
 
 sys.exit(0)
