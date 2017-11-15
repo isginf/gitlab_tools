@@ -43,7 +43,8 @@ parser.add_argument("-b", "--backup_dir", help="Project directory in backup dir"
 parser.add_argument("-c", "--component", help="Component to restore", choices=gitlab_lib.PROJECT_COMPONENTS.keys())
 parser.add_argument("-d", "--debug", help="Activate debug mode", action="store_true")
 parser.add_argument("-n", "--number", help="Number of processes", default=3)
-parser.add_argument("-p", "--project", help="Project name or id in Gitlab")
+parser.add_argument("-N", "--namespace", help="Name of namespace to restore project to")
+parser.add_argument("-P", "--project", help="Project name or id in Gitlab. Specify id to restore in existing project, name to create new one")
 parser.add_argument("-q", "--quiet", help="No messages execpt errors", action="store_true")
 parser.add_argument("-r", "--repository", help="Repository directory")
 parser.add_argument("-s", "--server", help="Gitlab server name", default=gitlab_config.SERVER)
@@ -132,17 +133,19 @@ except ValueError:
 
 # Got project name? Create it
 if not project_data:
-    project_data= gitlab_lib.restore_project(args.backup_dir, args.project)
+    gitlab_lib.log("Creating project %s in namespace %s" % (args.project, args.namespace))
+    project_data= gitlab_lib.restore_project(args.backup_dir, args.project, args.namespace)
 
 # Restore repository and wiki
 if args.repository:
-    backup_archive = os.path.join(args.backup_dir, args.project + ".git.tgz")
+    old_project_name = os.path.basename(args.backup_dir.rstrip("/")).split("_")[2]
+    backup_archive = os.path.join(args.backup_dir, old_project_name + ".git.tgz")
 
     if os.path.exists(backup_archive):
         gitlab_lib.log("Restoring repository " + backup_archive)
         gitlab_lib.restore_repository(backup_archive, args.repository, args.project, ".git")
 
-    backup_archive = os.path.join(args.backup_dir, args.project + ".wiki.git.tgz")
+    backup_archive = os.path.join(args.backup_dir, old_project_name + ".wiki.git.tgz")
 
     if os.path.exists(backup_archive):
         gitlab_lib.log("Restoring repository " + backup_archive)

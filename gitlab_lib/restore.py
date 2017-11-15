@@ -108,18 +108,42 @@ def restore_repository(backup_archive, repository_base_dir, project_name, suffix
     tar.extractall(repository_dir)
 
 
-def restore_project(backup_dir, project_name):
+def restore_project(backup_dir, project_name, namespace_name=None):
     """
     Create the project, add it's members and activate components
     Returns project metadata as dictionary
     """
     project = {}
+    namespace_id = None
 
     project_data = parse_json(os.path.join(backup_dir, "project.json"))
-    log("Creating project %s in namespace %s" % (project_name, project_data['namespace']['name']))
+
+    if namespace_name:
+        tmp = gitlab_lib.get_namespaces(namespace_name)
+
+        if not tmp or len(tmp) == 0:
+            raise ValueError("Cannot find namespace " + namespace_name)
+        elif len(tmp) > 1:
+            raise ValueError("Found more than one entry for namespace " + namespace_name)
+        else:
+            namespace_id = tmp[0]["id"]
+    else:
+        namespace_name = project_data['namespace']['name']
+        namespace_id = project_data['namespace']['id']
+
+    project_data['name'] = project_name
+    project_data['path'] = project_name
+    project_data['name_with_namespace'] = namespace_name + " / " + project_name
+    project_data['path_with_namespace'] = namespace_name + "/" + project_name
 
     del project_data['id']
-    project_data['namespace_id'] = project_data['namespace']['id']
+    del project_data['ssh_url_to_repo']
+    del project_data['web_url']
+    del project_data['last_activity_at']
+    del project_data['http_url_to_repo']
+    del project_data['_links']
+
+    project_data['namespace_id'] = namespace_id
     del project_data['namespace']
 
     project = create_project(project_name, prepare_restore_data(project_data.get('id'), project_data))
