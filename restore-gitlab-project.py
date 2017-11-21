@@ -74,7 +74,7 @@ def fill_restore_queue(project, component):
     component is the name of the component like the keys in PROJECT_COMPONENTS
     """
     restore_file = os.path.join(args.backup_dir, component + ".json")
-    restored = False
+    iid_counter = 1
 
     if os.path.isfile(restore_file):
         backup = gitlab_lib.parse_json(restore_file)
@@ -83,11 +83,14 @@ def fill_restore_queue(project, component):
             for entry in backup:
                 entry['component'] = component
                 entry['project_id'] = project['id']
-                work_queue.put(entry)
-                restored = True
 
-    if not restored:
-        gitlab_lib.log("Nothing to do for " + component)
+                if entry.get('iid'):
+                    entry['iid'] = iid_counter
+                    iid_counter = iid_counter + 1
+
+                work_queue.put(entry)
+        else:
+            gitlab_lib.log("Nothing to do for " + component)
 
 #
 # SIGNAL HANDLERS
@@ -133,7 +136,11 @@ except ValueError:
 
 # Got project name? Create it
 if not project_data:
-    gitlab_lib.log("Creating project %s in namespace %s" % (args.project, args.namespace))
+    if args.namespace:
+        gitlab_lib.log("Creating project %s in namespace %s" % (args.project, args.namespace))
+    else:
+        gitlab_lib.log("Creating project %s" % (args.project,))
+
     project_data= gitlab_lib.restore_project(args.backup_dir, args.project, args.namespace)
 
 # Restore repository and wiki
