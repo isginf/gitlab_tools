@@ -23,13 +23,17 @@
 #
 
 import os
+import shutil
 import tarfile
+import tempfile
+import subprocess
 import gitlab_lib
 from pipes import quote
 from .core import *
 from .api import *
 from .projects import *
 from .namespaces import *
+from gitlab_config import TMP_DIR, GITLAB_DIR
 
 
 #
@@ -98,15 +102,31 @@ def close_entry_if_needed(entry, created_entry, project_id):
 
 def restore_repository(backup_archive, repository_base_dir, project_name, suffix=".git"):
     """
-    Unpack archive to repository dir
+    Unpack archive to tmp dir, convert to bare repo, move it to repo dir
+    and create link to global gitlab hooks dir
     """
     tar = tarfile.open(backup_archive, "r:gz")
-    repository_dir = os.path.join(repository_base_dir, project_name + suffix)
 
-    if not os.path.exists(repository_dir):
-        os.mkdir(repository_dir)
+    tmp_dir = tempfile.TemporaryDirectory(dir=TMP_DIR)
+    repository_dest = os.path.join(repository_base_dir, project_name + suffix)
 
-    tar.extractall(repository_dir)
+    tar.extractall(tmp_dir.name)
+
+    os.chdir(os.path.dirname(tmp_dir.name))
+    subprocess.call(["git", "clone", "--mirror", os.path.basename(tmp_dir.name)])
+    os.chdir(tmp_dir.name)
+    subprocess.call(["git", "remote", "rm" , "origin"], stderr=subprocess.DEVNULL)
+
+    if os.path.exists(repository_dest):
+        shutil.rmtree(repository_dest)
+
+    shutil.move(tmp_dir.name + ".git", repository_dest)
+
+    shutil.rmtree(os.path.join(repository_dest, "hooks"))
+    os.symlink(os.path.join(GITLAB_DIR, "embedded","service","gitlab-shell","hooks"),
+               os.path.join(repository_dest, "hooks"))
+
+    tmp_dir.cleanup()
 
 
 def restore_project(backup_dir, project_name, namespace_name=None):
