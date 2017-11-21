@@ -104,6 +104,7 @@ def restore_repository(backup_archive, repository_base_dir, project_name, suffix
     """
     Unpack archive to tmp dir, convert to bare repo, move it to repo dir
     and create link to global gitlab hooks dir
+    Clear Redis cache afterwards to refresh the dashboard
     """
     tar = tarfile.open(backup_archive, "r:gz")
 
@@ -127,6 +128,8 @@ def restore_repository(backup_archive, repository_base_dir, project_name, suffix
                os.path.join(repository_dest, "hooks"))
 
     tmp_dir.cleanup()
+
+    subprocess.call(["gitlab-rake", "cache:clear"])
 
 
 def restore_project(backup_dir, project_name, namespace_name=None):
