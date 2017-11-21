@@ -48,6 +48,7 @@ def prepare_restore_data(project_id, entry):
                 "created_at",
                 "updated_at",
                 "expires_at",
+                "web_url"
                 "merge_when_pipeline_succeeds",
                 "work_in_progress",
                 "user_notes_count",
@@ -138,7 +139,6 @@ def restore_project(backup_dir, project_name, namespace_name=None):
 
     del project_data['id']
     del project_data['ssh_url_to_repo']
-    del project_data['web_url']
     del project_data['last_activity_at']
     del project_data['http_url_to_repo']
     del project_data['_links']
@@ -227,7 +227,7 @@ def restore_snippets(backup_dir, project, entry):
                                                                                            prepare_restore_data(project['id'], entry)))
 
             result = rest_api_call(PROJECT_COMPONENTS["snippets"] % (API_BASE_URL, project['id']),
-                                   prepare_restore_data(project['id'], entry))
+                                   prepare_restore_data(project['id'], entry)).json()
 
             restore_notes(backup_dir,
                           NOTES_FOR_SNIPPET % (API_BASE_URL, project['id'], __get_entry_id(entry, result)),
