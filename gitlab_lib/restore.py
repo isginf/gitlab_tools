@@ -86,14 +86,16 @@ def close_entry_if_needed(entry, created_entry, project_id):
     entry is a dictionary with all data of entry, created_entrya http response dict from entry creation
     """
     try:
-        if entry.get('state') == 'closed' and getattr(gitlab_lib.api, entry['component'].upper() + "_EDIT"):
+        edit_url = getattr(gitlab_lib.api, entry['component'].upper() + "_EDIT")
+
+        if edit_url and entry.get('state') == 'closed':
             if entry['component'] == "issues":
                 entry['issue_iid'] = entry['iid']
 
             elif entry['component'] == "merge_requests":
                 entry['merge_request_iid'] = entry['iid']
 
-            rest_api_call(getattr(gitlab_lib.api, entry['component'].upper() + "_EDIT") % (API_BASE_URL, project_id, __get_entry_id(entry, created_entry)),
+            rest_api_call(edit_url % (API_BASE_URL, project_id, __get_entry_id(entry, created_entry)),
                           prepare_restore_data(project_id, entry),
                           "PUT")
     except AttributeError:
@@ -111,24 +113,37 @@ def restore_repository(backup_archive, repository_base_dir, project_name, suffix
     tmp_dir = tempfile.TemporaryDirectory(dir=TMP_DIR)
     repository_dest = os.path.join(repository_base_dir, project_name + suffix)
 
+    # unpack repo
     tar.extractall(tmp_dir.name)
-
     os.chdir(os.path.dirname(tmp_dir.name))
-    subprocess.call(["git", "clone", "--mirror", os.path.basename(tmp_dir.name)])
-    os.chdir(tmp_dir.name)
-    subprocess.call(["git", "remote", "rm" , "origin"], stderr=subprocess.DEVNULL)
+
+    # remove lfs config
+    if os.path.exists(os.path.join(tmp_dir.name, ".gitattributes")):
+        log("Removing .gitattributes file")
+        os.unlink(os.path.join(tmp_dir.name, ".gitattributes"))
+
+    # convert to bare repo
+    subprocess.call(["git", "clone", "--bare", os.path.basename(tmp_dir.name)])
+    os.chdir(tmp_dir.name + ".git")
+
+    # remove origin as its the tmp dir
+    subprocess.call(["git", "remote", "rm", "origin"])
+    os.chdir(os.path.dirname(tmp_dir.name))
 
     if os.path.exists(repository_dest):
         shutil.rmtree(repository_dest)
 
+    # move restored repo to repo path
     shutil.move(tmp_dir.name + ".git", repository_dest)
 
+    # install global gitlab hooks
     shutil.rmtree(os.path.join(repository_dest, "hooks"))
     os.symlink(os.path.join(GITLAB_DIR, "embedded","service","gitlab-shell","hooks"),
                os.path.join(repository_dest, "hooks"))
 
     tmp_dir.cleanup()
 
+    # reset dashboard
     subprocess.call(["gitlab-rake", "cache:clear"])
 
 

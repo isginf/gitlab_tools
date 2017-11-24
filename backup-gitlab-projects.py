@@ -120,10 +120,4 @@ while not queue.empty():
 
     time.sleep(10)
 
-try:
-    shutil.rmtree(gitlab_config.TMP_DIR)
-    os.mkdir(gitlab_config.TMP_DIR)
-except (OSError, FileNotFoundError):
-    pass
-
 sys.exit(0)

@@ -100,6 +100,19 @@ def archive_directory(project, component, directory, output_basedir):
         log("No %s found for project %s [ID %s]" % (component, project['name'], project['id']))
 
 
+def __check_git_error(git_error):
+    git_error = str(git.stderr.read()).lower()
+
+    if "fatal" in git_error or "error" in git_error:
+        raise CloneError(repository_url, "Command %s failed: %s" %(git_cmd, git_error))
+
+
+def __run_git_commands(git_commands):
+    for git_cmd in git_commands:
+        with subprocess.Popen(git_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE) as git:
+            git.wait()
+
+
 def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tmp_dir=TMP_DIR):
     """
     Backup repository as LFS resolved work tree copy
@@ -114,7 +127,6 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
     namespace_tmp_dir = os.path.join(backup_tmp_dir, project['namespace']['name'])
     clone_output_dir = os.path.join(backup_tmp_dir, project['namespace']['name'], shlex.quote(project['name']) + ".git")
     repository_url = project['http_url_to_repo'].replace("https://", "https://oauth2:" + CLONE_ACCESS_TOKEN + "@")
-    error = None
 
     try:
         os.mkdir(backup_tmp_dir)
@@ -129,7 +141,7 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
         except (OSError, PermissionError, FileNotFoundError) as e:
             raise CloneError(repository_url, str(e))
 
-    git_clone_cmd = ["git", "clone", repository_url, clone_output_dir]
+    git_clone_cmd = ["git", "lfs", "clone", repository_url, clone_output_dir]
     log("Cloning " + repository_url + " into " + clone_output_dir)
 
     with subprocess.Popen(git_clone_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE) as git:
@@ -138,21 +150,37 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
 
         # when cloning an empty repo via https git returns 403 :(
         if ("fatal" in git_error or "error" in git_error) and not "error: 403" in git_error:
-            error = git_error
+            raise CloneError(repository_url, "Failed cloning: " + str(git_error))
         elif not "error: 403" in git_error:
-            # Remove git remote otherwise it contains our admin access token
             os.chdir(clone_output_dir)
-            git_rm_remote = ["git", "remote", "rm" , "origin"]
 
-            with subprocess.Popen(git_rm_remote, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE) as git:
-                git.wait()
-                git_error = str(git.stderr.read()).lower()
+            # check out all branches except HEAD
+            branches = list(filter(lambda x: not "HEAD" in x and not x == "master", subprocess.getoutput('git branch -r').splitlines()))
 
-            if "fatal" in git_error or "error" in git_error:
-                error = git_error
-            else:
-                archive_directory(project, 'repository', clone_output_dir, output_basedir)
+            for branch in branches:
+                branch = branch.split('/')[1]
+                branch = branch.replace(' ', '')
+                log("Checking out branch %s of repo %s" % (branch, repository_url))
 
+                git_commands = (["git", "checkout", branch],       # checkout branch
+                                ["git", "lfs", "fetch", "--all"] ) # fetch all lfs files in all commits and branches
+
+                __run_git_commands(git_commands)
+
+            if len(branches) > 0:
+                subprocess.call(["git", "checkout", "master"])
+
+            # clean up
+            git_commands = ( ["untrack_lfs.sh"],                  # untrack all lfs files in all revisions
+                             ["git", "gc"],                       # run garbadge collector
+                             ["git", "fsck"],                     # check repo
+                             ["git", "lfs", "uninstall"],         # uninstall LFS hook
+                             ["git", "remote", "rm" , "origin"] ) # remove remote url
+
+            __run_git_commands(git_commands)
+
+            # zip repo
+            archive_directory(project, 'repository', clone_output_dir, output_basedir)
             os.chdir("/")
         else:
             log("Repository of project %s [ID %d] seems to be empty" % (project['name'], project['id']))
@@ -164,9 +192,6 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
             shutil.rmtree(clone_output_dir)
         except (OSError, PermissionError, FileNotFoundError) as e:
             pass
-
-    if error:
-        raise CloneError(repository_url, error)
 
 
 def backup_local_data(project, output_basedir, repository_dir=REPOSITORY_DIR, upload_dir=UPLOAD_DIR):
