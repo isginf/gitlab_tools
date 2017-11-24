@@ -174,6 +174,7 @@ def restore_project(backup_dir, project_name, namespace_name=None):
     project_data['path'] = project_name
     project_data['name_with_namespace'] = namespace_name + " / " + project_name
     project_data['path_with_namespace'] = namespace_name + "/" + project_name
+    project_data['lfs_enabled'] = False
 
     del project_data['id']
     del project_data['ssh_url_to_repo']
