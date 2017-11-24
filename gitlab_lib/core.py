@@ -22,6 +22,7 @@
 # Loading modules
 #
 
+import os
 import json
 import random
 import string
@@ -73,7 +74,7 @@ def debug(message):
     Log a debug message
     """
     if DEBUG:
-        log("DEBUG: " + message)
+        log("[%d] DEBUG: %s" % (os.getpid(), message))
 
 
 def rest_api_call(url, data={}, method="POST"):
