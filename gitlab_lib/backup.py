@@ -174,7 +174,7 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
                 __run_git_commands(git_commands)
 
             if len(branches) > 0:
-                subprocess.call(["git", "checkout", "master"])
+                subprocess.getoutput("git checkout master")
 
             # clean up
             git_commands = ( ["untrack_lfs.sh"],                  # untrack all lfs files in all revisions
