@@ -6,7 +6,7 @@ A collection of tools we use to manage our Gitlab CE service at the departement 
 - backup-gitlab-projects.py is a tool to backup individual projects using the Gitlab REST API
 - gitlab_lib.py is the central library used by the tools
 - gitlab-meta-util.py - Swiss army knife for Gitlab Metadata
-- quota_hook.rb implements a nagging and max quota for git repositories (see above for installation instructions)
+- quota_hook.rb implements a nagging and max quota for git repositories (see below for installation instructions)
 - restore-gitlab-project.py can restore a whole project or just a single component like all issues
 
 
