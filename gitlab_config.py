@@ -7,4 +7,5 @@ BACKUP_DIR="/path/to/your/backups"
 UPLOAD_DIR="/var/opt/gitlab/gitlab-rails/uploads"
 TMP_DIR="/var/opt/gitlab/git-data/tmp""
 ERROR_LOG="/var/log/gitlab/gitlab_backup_error.log"
+LOG_TIMESTAMP="%d.%m.%Y %H:%M:%S"
 LOG_ERRORS=True
