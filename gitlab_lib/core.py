@@ -26,6 +26,7 @@ import os
 import json
 import random
 import string
+import datetime
 import requests
 from multiprocessing import Process
 from .api import API_BASE_URL
@@ -59,8 +60,10 @@ def error(message):
     log(">>> ERROR: " + message)
 
     if LOG_ERRORS:
+        ts = datetime.datetime.now().strftime(LOG_TIMESTAMP)
+
         with open(ERROR_LOG, "a") as err:
-            err.write(message + "\n")
+            err.write("[%s] %s\n" % (ts, message))
 
 
 def info(message):
