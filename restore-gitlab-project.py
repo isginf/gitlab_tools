@@ -100,6 +100,8 @@ def clean_shutdown(signal, frame):
     for process in processes:
         process.terminate()
 
+    sys.exit(1)
+
 signal(SIGINT, clean_shutdown)
 
 
