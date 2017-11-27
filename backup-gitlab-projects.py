@@ -77,9 +77,12 @@ processes = []
 # SIGNAL HANDLERS
 #
 
-def clean_shutdown(signal, frame):
+def terminate_all_processes():
     for process in processes:
         process.terminate()
+
+def clean_shutdown(signal, frame):
+    terminate_all_processes()
 
 signal(SIGINT, clean_shutdown)
 
@@ -105,19 +108,24 @@ else:
     for project in gitlab_lib.get_projects(args.user, personal=True):
         queue.put(project)
 
-# Start processes and let em backup every project
-for process in range(int(args.number)):
-    processes.append( gitlab_lib.create_process(gitlab_lib.backup, (queue, args.output)) )
-
-# Check if a process died and must be restarted
-while not queue.empty():
-    for (i, process) in enumerate(processes):
-        if not process.is_alive():
-            del process[i]
-
-    if len(processes) < int(args.number) and queue.qsize() > len(processes):
+if queue.qsize() == 0:
+    gitlab_lib.error("Cannot find any projects to backup!")
+else:
+    # Start processes and let em backup every project
+    for process in range(int(args.number)):
         processes.append( gitlab_lib.create_process(gitlab_lib.backup, (queue, args.output)) )
 
-    time.sleep(10)
+    # Check if a process died and must be restarted
+    while queue.qsize() > 0:
+        for (i, process) in enumerate(processes):
+            if not process.is_alive():
+                del process[i]
+
+        if len(processes) < int(args.number) and queue.qsize() > len(processes):
+            processes.append( gitlab_lib.create_process(gitlab_lib.backup, (queue, args.output)) )
+
+        time.sleep(10)
+
+    terminate_all_processes()
 
 sys.exit(0)
