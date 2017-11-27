@@ -241,7 +241,7 @@ def restore(backup_dir, project, work_queue):
     """
     Restore a projects components
     """
-    while not work_queue.qsize() > 0:
+    while work_queue.qsize() > 0:
         entry = work_queue.get()
         restore_entry(backup_dir, project, entry)
 
