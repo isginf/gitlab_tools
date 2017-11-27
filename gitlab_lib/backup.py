@@ -330,7 +330,7 @@ def backup(queue,backup_dir):
     For every project create a dictionary with id_name as pattern
     Dump project metadata and each component as separate JSON files
     """
-    while not queue.qsize() > 0:
+    while queue.qsize() > 0:
         project = queue.get()
         output_basedir = os.path.join(backup_dir, "%s_%s_%s" % (project['id'], project['namespace']['name'], project['name']))
 
