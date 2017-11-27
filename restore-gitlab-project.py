@@ -141,7 +141,7 @@ if not project_data:
     else:
         gitlab_lib.log("Creating project %s" % (args.project,))
 
-    project_data= gitlab_lib.restore_project(args.backup_dir, args.project, args.namespace)
+    project_data = gitlab_lib.restore_project(args.backup_dir, args.project, args.namespace)
 
 # Restore repository and wiki
 if args.repository:

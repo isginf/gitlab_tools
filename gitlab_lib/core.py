@@ -38,6 +38,7 @@ from gitlab_config import SERVER, TOKEN, CLONE_ACCESS_TOKEN, REPOSITORY_DIR, BAC
 
 QUIET=False
 DEBUG=False
+TIMEOUT=15
 
 
 #
@@ -85,19 +86,19 @@ def rest_api_call(url, data={}, method="POST"):
     >>> rest_api_call("https://" + SERVER + "/api/v3/projects/2/issues", {"id": 2, "title": "just a test"}).json()['title']
     u'just a test'
     """
-    error = ""
+    error = None
 
     try:
         debug(method + "\n\turl " + url + "\n\tdata " + str(data) + "\n")
 
         if method == "GET":
-            response = requests.get(url, headers={"PRIVATE-TOKEN" : TOKEN})
+            response = requests.get(url, headers={"PRIVATE-TOKEN" : TOKEN}, timeout=TIMEOUT)
         elif method == "PUT":
-            response = requests.put(url, data=data, headers={"PRIVATE-TOKEN" : TOKEN})
+            response = requests.put(url, data=data, headers={"PRIVATE-TOKEN" : TOKEN}, timeout=TIMEOUT)
         elif method == "DELETE":
-            response = requests.delete(url, headers={"PRIVATE-TOKEN" : TOKEN})
+            response = requests.delete(url, headers={"PRIVATE-TOKEN" : TOKEN}, timeout=TIMEOUT)
         else:
-            response = requests.post(url, data=data, headers={"PRIVATE-TOKEN" : TOKEN})
+            response = requests.post(url, data=data, headers={"PRIVATE-TOKEN" : TOKEN}, timeout=TIMEOUT)
     except (requests.exceptions.ConnectionError, requests.exceptions.RequestException) as e:
         error = "Request to url %s failed: %s\n%s" % (url, response.text, str(e))
         response = None
@@ -115,7 +116,7 @@ def rest_api_call(url, data={}, method="POST"):
         debug("NO RESPONSE\n")
 
     if error:
-        debug("ERROR " + error)
+        error("ERROR " + error)
         raise WebError(url, data, method, str(e))
 
     return response
