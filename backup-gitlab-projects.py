@@ -71,6 +71,7 @@ gitlab_lib.core.UPLOAD_DIR = args.upload
 
 queue = Queue()
 processes = []
+nr_of_processes = int(args.number)
 
 
 #
@@ -111,17 +112,24 @@ else:
 if queue.qsize() == 0:
     gitlab_lib.error("Cannot find any projects to backup!")
 else:
+    if nr_of_processes > queue.qsize():
+        nr_of_processes = queue.qsize()
+
     # Start processes and let em backup every project
-    for process in range(int(args.number)):
+    for process in range(nr_of_processes):
         processes.append( gitlab_lib.create_process(gitlab_lib.backup, (queue, args.output)) )
 
     # Check if a process died and must be restarted
     while queue.qsize() > 0:
+        gitlab_lib.debug("Queue size: " + str(queue.qsize()))
+
         for (i, process) in enumerate(processes):
             if not process.is_alive():
+                gitlab_lib.debug("Found dead process")
                 del processes[i]
 
         if len(processes) < int(args.number) and queue.qsize() > len(processes):
+            gitlab_lib.debug("Starting new process")
             processes.append( gitlab_lib.create_process(gitlab_lib.backup, (queue, args.output)) )
 
         time.sleep(10)
