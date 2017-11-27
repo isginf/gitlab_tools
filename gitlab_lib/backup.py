@@ -104,7 +104,10 @@ def __check_git_error(git_error):
     git_error = str(git.stderr.read()).lower()
 
     if "fatal" in git_error or "error" in git_error:
-        raise CloneError(repository_url, "Command %s failed: %s" %(git_cmd, git_error))
+        if "empty repository" in git_error:
+           log("Repository is empty")
+        else:
+            raise CloneError(repository_url, "Command %s failed: %s" %(git_cmd, git_error))
 
 
 def __run_git_commands(git_commands):
@@ -150,7 +153,10 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
 
         # when cloning an empty repo via https git returns 403 :(
         if ("fatal" in git_error or "error" in git_error) and not "error: 403" in git_error:
-            raise CloneError(repository_url, "Failed cloning: " + str(git_error))
+            if "empty repository" in git_error:
+                log("Repository is empty")
+            else:
+                raise CloneError(repository_url, "Failed cloning: " + str(git_error))
         elif not "error: 403" in git_error:
             os.chdir(clone_output_dir)
 
@@ -163,7 +169,7 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
                 log("Checking out branch %s of repo %s" % (branch, repository_url))
 
                 git_commands = (["git", "checkout", branch],       # checkout branch
-                                ["git", "lfs", "fetch", "--all"] ) # fetch all lfs files in all commits and branches
+                                ["git", "lfs", "fetch", "--all"])  # fetch all lfs files in all commits
 
                 __run_git_commands(git_commands)
 
@@ -324,7 +330,7 @@ def backup(queue,backup_dir):
     For every project create a dictionary with id_name as pattern
     Dump project metadata and each component as separate JSON files
     """
-    while not queue.empty():
+    while not queue.qsize() > 0:
         project = queue.get()
         output_basedir = os.path.join(backup_dir, "%s_%s_%s" % (project['id'], project['namespace']['name'], project['name']))
 
