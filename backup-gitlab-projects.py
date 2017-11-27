@@ -84,6 +84,7 @@ def terminate_all_processes():
 
 def clean_shutdown(signal, frame):
     terminate_all_processes()
+    sys.exit(1)
 
 signal(SIGINT, clean_shutdown)
 
