@@ -119,7 +119,7 @@ else:
     while queue.qsize() > 0:
         for (i, process) in enumerate(processes):
             if not process.is_alive():
-                del process[i]
+                del processes[i]
 
         if len(processes) < int(args.number) and queue.qsize() > len(processes):
             processes.append( gitlab_lib.create_process(gitlab_lib.backup, (queue, args.output)) )
