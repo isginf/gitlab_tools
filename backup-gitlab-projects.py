@@ -44,6 +44,7 @@ import gitlab_config
 #
 
 parser = argparse.ArgumentParser()
+parser.add_argument("-a", "--archive", help="Resolve LFS for archiving", action="store_true")
 parser.add_argument("-d", "--debug", help="Show debug messages", action="store_true")
 parser.add_argument("-n", "--number", help="Number of processes", type=int, default="4")
 parser.add_argument("-o", "--output", help="Output directory for backups", default=gitlab_config.BACKUP_DIR)
@@ -131,7 +132,7 @@ else:
 
         if len(processes) < int(args.number) and queue.qsize() > len(processes):
             gitlab_lib.debug("Starting new process")
-            processes.append( gitlab_lib.create_process(gitlab_lib.backup, (queue, args.output)) )
+            processes.append( gitlab_lib.create_process(gitlab_lib.backup, (queue, args.output, args.archive)) )
 
         time.sleep(10)
 

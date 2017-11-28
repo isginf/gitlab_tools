@@ -116,34 +116,10 @@ def __run_git_commands(git_commands):
             git.wait()
 
 
-def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tmp_dir=TMP_DIR):
+def archive_repository(repository_url, clone_output_dir):
     """
-    Backup repository as LFS resolved work tree copy
+    Clone a repo with all branches and resolve lfs files in all commits
     """
-    repo_dir = os.path.join(repository_dir, project['namespace']['name'], project['name'] + ".git")
-
-    if not os.path.exists(repo_dir):
-        log("No repository found for project %s [ID %s]" % (project['name'], project['id']))
-        return None
-
-    backup_tmp_dir = os.path.join(tmp_dir, "backup")
-    namespace_tmp_dir = os.path.join(backup_tmp_dir, project['namespace']['name'])
-    clone_output_dir = os.path.join(backup_tmp_dir, project['namespace']['name'], shlex.quote(project['name']) + ".git")
-    repository_url = project['http_url_to_repo'].replace("https://", "https://oauth2:" + CLONE_ACCESS_TOKEN + "@")
-
-    try:
-        os.mkdir(backup_tmp_dir)
-        os.mkdir(namespace_tmp_dir)
-    except FileExistsError:
-        pass
-
-    if os.path.exists(clone_output_dir):
-        try:
-            debug("Removing " + clone_output_dir)
-            shutil.rmtree(clone_output_dir)
-        except (OSError, PermissionError, FileNotFoundError) as e:
-            raise CloneError(repository_url, str(e))
-
     git_clone_cmd = ["git", "lfs", "clone", repository_url, clone_output_dir]
     log("Cloning " + repository_url + " into " + clone_output_dir)
 
@@ -185,11 +161,55 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
 
             __run_git_commands(git_commands)
 
-            # zip repo
-            archive_directory(project, 'repository', clone_output_dir, output_basedir)
-            os.chdir("/")
-        else:
-            log("Repository of project %s [ID %d] seems to be empty" % (project['name'], project['id']))
+
+def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tmp_dir=TMP_DIR, resolve_lfs=False):
+    """
+    Backup repository either as bare mirror or as LFS resolved checkout
+    """
+    repo_dir = os.path.join(repository_dir, project['namespace']['name'], project['name'] + ".git")
+
+    if not os.path.exists(repo_dir):
+        log("No repository found for project %s [ID %s]" % (project['name'], project['id']))
+        return None
+
+    backup_tmp_dir = os.path.join(tmp_dir, "backup")
+    namespace_tmp_dir = os.path.join(backup_tmp_dir, project['namespace']['name'])
+    clone_output_dir = os.path.join(backup_tmp_dir, project['namespace']['name'], shlex.quote(project['name']) + ".git")
+    repository_url = project['http_url_to_repo'].replace("https://", "https://oauth2:" + CLONE_ACCESS_TOKEN + "@")
+
+    try:
+        os.mkdir(backup_tmp_dir)
+        os.mkdir(namespace_tmp_dir)
+    except FileExistsError:
+        pass
+
+    if os.path.exists(clone_output_dir):
+        try:
+            debug("Removing " + clone_output_dir)
+            shutil.rmtree(clone_output_dir)
+        except (OSError, PermissionError, FileNotFoundError) as e:
+            raise CloneError(repository_url, str(e))
+
+    if resolve_lfs:
+        archive_repository(repository_url, clone_output_dir)
+    else:
+        git_clone_cmd = ["git", "clone", "--mirror", repository_url, clone_output_dir]
+        log("Cloning " + repository_url + " into " + clone_output_dir)
+
+        with subprocess.Popen(git_clone_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE) as git:
+            git.wait()
+            git_error = str(git.stderr.read()).lower()
+
+            # when cloning an empty repo via https git returns 403 :(
+            if ("fatal" in git_error or "error" in git_error) and not "error: 403" in git_error:
+                if "empty repository" in git_error:
+                    log("Repository is empty")
+                else:
+                    raise CloneError(repository_url, "Failed cloning: " + str(git_error))
+
+    # zip repo
+    archive_directory(project, 'repository', clone_output_dir, output_basedir)
+    os.chdir("/")
 
     # removed temporary cloned repository
     if os.path.exists(clone_output_dir):
@@ -276,7 +296,7 @@ def backup_user_metadata(user, backup_dir=BACKUP_DIR):
         dump(fetch(USER_EMAILS % (API_BASE_URL, user["id"])), output_basedir, "email.json")
 
 
-def backup_project(project, output_basedir, queue):
+def backup_project(project, output_basedir, queue, archive=False):
     """
     Backup a single project
     """
@@ -285,7 +305,7 @@ def backup_project(project, output_basedir, queue):
     if not os.path.exists(output_basedir): os.mkdir(output_basedir)
 
     dump(project, output_basedir, "project.json")
-    backup_repository(project, output_basedir)
+    backup_repository(project, output_basedir, resolve_lfs=archive)
     backup_local_data(project, output_basedir)
 
     # backup metadata of each component
@@ -324,7 +344,7 @@ def backup_project(project, output_basedir, queue):
                  component + ".json")
 
 
-def backup(queue,backup_dir):
+def backup(queue, backup_dir, archive=False):
     """
     Backup everything for the given project
     For every project create a dictionary with id_name as pattern
@@ -338,7 +358,7 @@ def backup(queue,backup_dir):
             project["retried"] = 3
 
         try:
-            backup_project(project, output_basedir, queue)
+            backup_project(project, output_basedir, queue, archive)
         except (ArchiveError, CloneError, WebError) as e:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             traceback.print_exception(exc_type, exc_value, exc_traceback, limit=3, file=sys.stdout)

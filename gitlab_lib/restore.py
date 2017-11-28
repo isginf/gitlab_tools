@@ -102,7 +102,7 @@ def close_entry_if_needed(entry, created_entry, project_id):
         pass
 
 
-def restore_repository(backup_archive, repository_base_dir, project_name, suffix=".git"):
+def restore_repository(backup_archive, repository_base_dir, project_name, suffix=".git", archive=False):
     """
     Unpack archive to tmp dir, convert to bare repo, move it to repo dir
     and create link to global gitlab hooks dir
@@ -117,29 +117,32 @@ def restore_repository(backup_archive, repository_base_dir, project_name, suffix
     tar.extractall(tmp_dir.name)
     os.chdir(os.path.dirname(tmp_dir.name))
 
-    # remove lfs config
-    if os.path.exists(os.path.join(tmp_dir.name, ".gitattributes")):
-        log("Removing .gitattributes file")
-        os.unlink(os.path.join(tmp_dir.name, ".gitattributes"))
+    if archive:
+        # remove lfs config
+        if os.path.exists(os.path.join(tmp_dir.name, ".gitattributes")):
+            log("Removing .gitattributes file")
+            os.unlink(os.path.join(tmp_dir.name, ".gitattributes"))
 
-    # convert to bare repo
-    subprocess.call(["git", "clone", "--bare", os.path.basename(tmp_dir.name)])
-    os.chdir(tmp_dir.name + ".git")
+        # convert to bare repo
+        subprocess.call(["git", "clone", "--bare", os.path.basename(tmp_dir.name)])
+        os.chdir(tmp_dir.name + ".git")
 
-    # remove origin as its the tmp dir
-    subprocess.call(["git", "remote", "rm", "origin"])
-    os.chdir(os.path.dirname(tmp_dir.name))
+        # remove origin as its the tmp dir
+        subprocess.call(["git", "remote", "rm", "origin"])
+        os.chdir(os.path.dirname(tmp_dir.name))
 
-    if os.path.exists(repository_dest):
-        shutil.rmtree(repository_dest)
+        if os.path.exists(repository_dest):
+            shutil.rmtree(repository_dest)
 
-    # move restored repo to repo path
-    shutil.move(tmp_dir.name + ".git", repository_dest)
+        shutil.move(tmp_dir.name + ".git", repository_dest)
+    else:
+        shutil.move(tmp_dir.name, repository_dest)
 
-    # install global gitlab hooks
-    shutil.rmtree(os.path.join(repository_dest, "hooks"))
-    os.symlink(os.path.join(GITLAB_DIR, "embedded","service","gitlab-shell","hooks"),
-               os.path.join(repository_dest, "hooks"))
+    if archive:
+        # install global gitlab hooks
+        shutil.rmtree(os.path.join(repository_dest, "hooks"))
+        os.symlink(os.path.join(GITLAB_DIR, "embedded","service","gitlab-shell","hooks"),
+                   os.path.join(repository_dest, "hooks"))
 
     tmp_dir.cleanup()
 

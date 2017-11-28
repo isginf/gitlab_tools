@@ -39,6 +39,7 @@ import gitlab_lib
 #
 
 parser = argparse.ArgumentParser()
+parser.add_argument("-a", "--archive", help="Restore from archived repo (not bare)", action="store_true")
 parser.add_argument("-b", "--backup_dir", help="Project directory in backup dir")
 parser.add_argument("-c", "--component", help="Component to restore", choices=gitlab_lib.PROJECT_COMPONENTS.keys())
 parser.add_argument("-d", "--debug", help="Activate debug mode", action="store_true")
@@ -152,7 +153,7 @@ if args.repository:
 
     if os.path.exists(backup_archive):
         gitlab_lib.log("Restoring repository " + backup_archive)
-        gitlab_lib.restore_repository(backup_archive, args.repository, args.project, ".git")
+        gitlab_lib.restore_repository(backup_archive, args.repository, args.project, ".git", args.archive)
 
     backup_archive = os.path.join(args.backup_dir, old_project_name + ".wiki.git.tgz")
 
@@ -172,9 +173,9 @@ else:
     fill_restore_queue(project_data, "issues")
 
 # spawn some processes to do the actual restore
-nr_of_processes = args.number
+nr_of_processes = int(args.number)
 
-if work_queue.qsize() < args.number:
+if work_queue.qsize() < nr_of_processes:
     nr_of_processes = work_queue.qsize()
 
 for process in range(nr_of_processes):
