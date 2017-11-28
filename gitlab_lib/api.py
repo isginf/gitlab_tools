@@ -56,11 +56,14 @@ GROUP_BY_ID = "%s/groups/%d"
 PROJECT_COMPONENTS = {
     "request_access": "%s/projects/%s/access_requests",
     "boards": "%s/projects/%s/boards",
+    "hooks": "%s/projects/%s/hooks",
     "issues": "%s/projects/%s/issues",
     "labels": "%s/projects/%s/labels",
     "members": "%s/projects/%s/members",
     "milestones": "%s/projects/%s/milestones",
     "merge_requests": "%s/projects/%s/merge_requests",
+    "pipelines": "%s/projects/%s/pipelines",
+    "jobs": "%s/projects/%s/jobs",
     "snippets": "%s/projects/%s/snippets"
 }
 
