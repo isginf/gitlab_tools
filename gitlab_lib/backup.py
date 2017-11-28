@@ -116,7 +116,7 @@ def __run_git_commands(git_commands):
             git.wait()
 
 
-def archive_repository(repository_url, clone_output_dir):
+def __archive_repository(repository_url, clone_output_dir):
     """
     Clone a repo with all branches and resolve lfs files in all commits
     """
@@ -191,7 +191,7 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
             raise CloneError(repository_url, str(e))
 
     if resolve_lfs:
-        archive_repository(repository_url, clone_output_dir)
+        __archive_repository(repository_url, clone_output_dir)
     else:
         git_clone_cmd = ["git", "clone", "--mirror", repository_url, clone_output_dir]
         log("Cloning " + repository_url + " into " + clone_output_dir)
