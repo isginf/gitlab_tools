@@ -56,34 +56,40 @@ def delete_project(project):
     return delete(DELETE_PROJECT % (API_BASE_URL, project["id"]))
 
 
-def get_projects(username=None, personal=False):
+def get_projects(username=None, personal=False, with_archived=True, only_archived=False):
     """
     Returns a list of all gitlab projects
     If username was specified returns list of projects user is involved in
     If personal is true only personal projects of the given user are returned
+    Set with_archived to False if you dont want to get archived projects
+    Or set only_archived to True if you only want to see archived projects
 
     >>> len(get_projects()) > 0
     True
     """
     chunk_size = 100
-    page = 1
+    api_url = GET_NO_OF_PROJECTS
+    filter_func = None
+    already_returned = {}
 
-    while 1:
-        projects = fetch(GET_NO_OF_PROJECTS % (API_BASE_URL, chunk_size, page))
+    if with_archived:
+        api_url = GET_ARCHIVED_PROJECTS
 
-        if projects:
-            if username:
-                if personal:
-                    projects = filter(lambda x: x['namespace']['name'] == username, projects)
-                else:
-                    projects = filter(lambda x: user_involved_in_project(username, x), projects)
-
-            page += 1
-
-            for project in projects:
-                yield project
+    if username:
+        if personal:
+            filter_func = lambda x: x['namespace']['name'] == username
         else:
-            return
+            filter_func = lambda x: user_involved_in_project(username, x)
+
+    projects = fetch_per_page(api_url, chunk_size, filter_func)
+
+    if only_archived:
+        projects = filter(lambda x: x['archived'] == True, projects)
+
+    for project in fetch_per_page(GET_ARCHIVED_PROJECTS, chunk_size, filter_func):
+#        if not already_returned.get(project['id']):
+#            already_returned[project['id']] = True
+        yield project
 
 
 def get_project_metadata(project):

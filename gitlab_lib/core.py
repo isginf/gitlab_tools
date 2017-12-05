@@ -31,7 +31,7 @@ import requests
 from multiprocessing import Process
 from .api import API_BASE_URL
 from .exception import WebError, ReadError, ParseError
-from gitlab_config import SERVER, TOKEN, CLONE_ACCESS_TOKEN, REPOSITORY_DIR, BACKUP_DIR, UPLOAD_DIR, TMP_DIR, ERROR_LOG, LOG_ERRORS
+from gitlab_config import SERVER, TOKEN, CLONE_ACCESS_TOKEN, REPOSITORY_DIR, BACKUP_DIR, UPLOAD_DIR, TMP_DIR, ERROR_LOG, LOG_ERRORS, LOG_TIMESTAMP
 
 #
 # Configuration
@@ -89,7 +89,7 @@ def rest_api_call(url, data={}, method="POST"):
     >>> rest_api_call("https://" + SERVER + "/api/v3/projects/2/issues", {"id": 2, "title": "just a test"}).json()['title']
     u'just a test'
     """
-    error = None
+    error_msg = None
 
     try:
         debug(method + "\n\turl " + url + "\n\tdata " + str(data) + "\n")
@@ -103,13 +103,13 @@ def rest_api_call(url, data={}, method="POST"):
         else:
             response = requests.post(url, data=data, headers={"PRIVATE-TOKEN" : TOKEN}, timeout=TIMEOUT)
     except (requests.exceptions.ConnectionError, requests.exceptions.RequestException) as e:
-        error = "Request to url %s failed: %s\n%s" % (url, response.text, str(e))
+        error_msg = "Request to url %s failed: %s" % (url, str(e))
         response = None
     except requests.exceptions.Timeout as e:
-        error = "Request to url %s timedout: %s\n%s" % (url, response.text, str(e))
-        response = None
+        error_msg = "Request to url %s timedout: %s\n%s" % (url, response.text, str(e))
 
-    if response.status_code == 401:
+
+    if response and response.status_code == 401:
         error("Request to url %s unauthorized! %s" % (url, response.text))
         response = None
 
@@ -118,9 +118,9 @@ def rest_api_call(url, data={}, method="POST"):
     else:
         debug("NO RESPONSE\n")
 
-    if error:
-        error("ERROR " + error)
-        raise WebError(url, data, method, str(e))
+    if error_msg:
+        error("ERROR " + error_msg)
+        raise WebError(url, data, method, error_msg)
 
     return response
 
@@ -157,6 +157,30 @@ def fetch(rest_url, ignore_errors=False):
     """
 
     return make_request("GET", rest_url, ignore_errors=ignore_errors)
+
+
+def fetch_per_page(api_url, chunk_size=100, filter_func=None):
+    """
+    Fetch data from an api url until it returns empty list
+    api_url must have placeholder per_page=%d&page=%d
+    chunk_size defines number of per page
+    filter_func can be used to filter the result
+    """
+    page = 1
+
+    while 1:
+        buffer = fetch(api_url % (API_BASE_URL, chunk_size, page))
+
+        if buffer:
+            if filter_func:
+                buffer = filter(filter_func, buffer)
+
+            page += 1
+
+            for chunk in buffer:
+                yield chunk
+        else:
+            return
 
 
 def post(rest_url, post_data={}, ignore_errors=False):
