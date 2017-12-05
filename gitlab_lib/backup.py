@@ -101,7 +101,7 @@ def archive_directory(project, component, directory, output_basedir):
 
 
 def __check_git_error(git_error):
-    git_error = str(git.stderr.read()).lower()
+    git_error = git_error.lower()
 
     if "fatal" in git_error or "error" in git_error:
         if "empty repository" in git_error:
@@ -115,6 +115,7 @@ def __run_git_commands(git_commands):
         debug("Running git command " + str(git_cmd))
         with subprocess.Popen(git_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE) as git:
             git.wait()
+            __check_git_error(str(git.stderr.read()))
 
 
 def __archive_repository(repository_url, clone_output_dir):
