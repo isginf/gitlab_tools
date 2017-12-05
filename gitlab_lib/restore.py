@@ -318,7 +318,6 @@ def update_metadata(entry):
     if entry.get('state') == "closed":
         entry['state_event'] = "close"
 
-    # TODO: deprecated
     if entry.get('assignee'):
         entry['assignee_id'] = entry['assignee']['id']
         del entry['assignee']
