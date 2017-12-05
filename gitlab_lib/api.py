@@ -76,6 +76,7 @@ ADD_PROJECT_MEMBER = "%s/projects/%d/members"
 EDIT_PROJECT_MEMBER = "%s/projects/%d/members/%d"
 DEL_PROJECT_MEMBER = "%s/projects/%d/members/%d"
 GET_NO_OF_PROJECTS = "%s/projects?per_page=%d&page=%d"
+GET_ARCHIVED_PROJECTS = "%s/projects?per_page=%d&page=%d&archived=true"
 PROTECT_BRANCH = "%s/projects/%d/repository/branches/%s/protect"
 
 GET_SNIPPET_CONTENT = "%s/projects/%d/snippets/%d/raw"
