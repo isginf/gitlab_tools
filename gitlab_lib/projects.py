@@ -70,7 +70,6 @@ def get_projects(username=None, personal=False, with_archived=True, only_archive
     chunk_size = 100
     api_url = GET_NO_OF_PROJECTS
     filter_func = None
-    already_returned = {}
 
     if with_archived:
         api_url = GET_ARCHIVED_PROJECTS
@@ -87,8 +86,6 @@ def get_projects(username=None, personal=False, with_archived=True, only_archive
         projects = filter(lambda x: x['archived'] == True, projects)
 
     for project in fetch_per_page(GET_ARCHIVED_PROJECTS, chunk_size, filter_func):
-#        if not already_returned.get(project['id']):
-#            already_returned[project['id']] = True
         yield project
 
 
