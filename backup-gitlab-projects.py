@@ -119,7 +119,7 @@ else:
 
     # Start processes and let em backup every project
     for process in range(nr_of_processes):
-        processes.append( gitlab_lib.create_process(gitlab_lib.backup, (queue, args.output)) )
+        processes.append( gitlab_lib.create_process(gitlab_lib.backup, (queue, args.output, args.archive)) )
 
     # Check if a process died and must be restarted
     while queue.qsize() > 0:
