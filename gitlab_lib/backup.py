@@ -112,6 +112,7 @@ def __check_git_error(git_error):
 
 def __run_git_commands(git_commands):
     for git_cmd in git_commands:
+        debug("Running git command " + str(git_cmd))
         with subprocess.Popen(git_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE) as git:
             git.wait()
 
@@ -365,5 +366,8 @@ def backup(queue, backup_dir, archive=False):
             error(str(e))
 
             if project.get("retried") > 0:
+                debug("Retrying backup of project %s/%s [%d]" % (project['namespace']['name'], project['name'], project['id']))
                 project["retried"] = project["retried"] - 1
+
+                debug("New retry value of %d for project %s/%s [%d]" % (project["retried"], project['namespace']['name'], project['name'], project['id']))
                 queue.put(project)
