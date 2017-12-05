@@ -101,6 +101,7 @@ def archive_directory(project, component, directory, output_basedir):
 
 
 def __check_git_error(git_error):
+    debug("Git error " + git_error)
     git_error = git_error.lower()
 
     if "fatal" in git_error or "error" in git_error:
@@ -128,6 +129,7 @@ def __archive_repository(repository_url, clone_output_dir):
     with subprocess.Popen(git_clone_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE) as git:
         git.wait()
         git_error = str(git.stderr.read()).lower()
+        debug("Git error " + git_error)
 
         # when cloning an empty repo via https git returns 403 :(
         if ("fatal" in git_error or "error" in git_error) and not "error: 403" in git_error:
