@@ -60,14 +60,16 @@ def archivate(src_dir, dest_dir, prefix="", console=False):
     try:
         if console:
             tar_cmd = "tar xvfz %s %s" % (filename, src_dir)
+            debug("Running " + tar_cmd)
 
-            with subprocess.Popen(tar_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE) as tar:
-                tar.wait()
-                tar_error = str(tar.stderr.read()).lower()
+            tar = subprocess.Popen(tar_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+            tar.wait(timeout=TAR_TIMEOUT)
+            tar_error = str(tar.stderr.read()).lower()
 
-                if "fatal" in tar_error or "error" in tar_error:
-                    error_msg = tar_error
+            if "fatal" in tar_error or "error" in tar_error:
+                error_msg = tar_error
         else:
+            debug("Creating tar archive %s from %s" % (filename, src_dir))
             tar = tarfile.open(filename, "w:gz")
             tar.add(src_dir, arcname=".", recursive=True)
             tar.close()
@@ -101,7 +103,9 @@ def archive_directory(project, component, directory, output_basedir):
 
 
 def __check_git_error(git_error):
-    debug("Git error " + git_error)
+    if git_error != b'':
+        debug("Git error " + git_error)
+
     git_error = git_error.lower()
 
     if "fatal" in git_error or "error" in git_error:
@@ -114,9 +118,9 @@ def __check_git_error(git_error):
 def __run_git_commands(git_commands):
     for git_cmd in git_commands:
         debug("Running git command " + str(git_cmd))
-        with subprocess.Popen(git_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE) as git:
-            git.wait()
-            __check_git_error(str(git.stderr.read()))
+        git = subprocess.Popen(git_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        git.wait(timeout=GIT_TIMEOUT)
+        __check_git_error(str(git.stderr.read()))
 
 
 def __archive_repository(repository_url, clone_output_dir):
@@ -126,44 +130,50 @@ def __archive_repository(repository_url, clone_output_dir):
     git_clone_cmd = ["git", "lfs", "clone", repository_url, clone_output_dir]
     log("Cloning " + repository_url + " into " + clone_output_dir)
 
-    with subprocess.Popen(git_clone_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE) as git:
-        git.wait()
-        git_error = str(git.stderr.read()).lower()
+    git = subprocess.Popen(git_clone_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    git.wait(timeout=GIT_TIMEOUT)
+    git_error = str(git.stderr.read()).lower()
+
+    if git_error and git_error != b'':
         debug("Git error " + git_error)
 
-        # when cloning an empty repo via https git returns 403 :(
-        if ("fatal" in git_error or "error" in git_error) and not "error: 403" in git_error:
-            if "empty repository" in git_error:
-                log("Repository is empty")
-            else:
-                raise CloneError(repository_url, "Failed cloning: " + str(git_error))
-        elif not "error: 403" in git_error:
-            os.chdir(clone_output_dir)
+    # when an error occurend  and we did not get error: 403
+    # which means cloning an empty repo via https
+    if ("fatal" in git_error or "error" in git_error) and not "error: 403" in git_error:
+        raise CloneError(repository_url, "Failed cloning: " + str(git_error))
+    elif not "error: 403" in git_error:
+        os.chdir(clone_output_dir)
 
-            # check out all branches except HEAD
-            branches = list(filter(lambda x: not "HEAD" in x and not x == "master", subprocess.getoutput('git branch -r').splitlines()))
+        # check out all branches except HEAD
+        branches = list(filter(lambda x: not "HEAD" in x and not x == "master", subprocess.getoutput('git branch -r').splitlines()))
 
-            for branch in branches:
-                branch = branch.split('/')[1]
-                branch = branch.replace(' ', '')
-                log("Checking out branch %s of repo %s" % (branch, repository_url))
+        for branch in branches:
+            branch = branch.split('/')[1]
+            branch = branch.replace(' ', '')
+            log("Checking out branch %s of repo %s" % (branch, repository_url))
 
-                git_commands = (["git", "checkout", branch],       # checkout branch
-                                ["git", "lfs", "fetch", "--all"])  # fetch all lfs files in all commits
-
-                __run_git_commands(git_commands)
-
-            if len(branches) > 0:
-                subprocess.getoutput("git checkout master")
-
-            # clean up
-            git_commands = ( ["untrack_lfs.sh"],                  # untrack all lfs files in all revisions
-                             ["git", "gc"],                       # run garbadge collector
-                             ["git", "fsck"],                     # check repo
-                             ["git", "lfs", "uninstall"],         # uninstall LFS hook
-                             ["git", "remote", "rm" , "origin"] ) # remove remote url
+            git_commands = (["git", "checkout", branch],       # checkout branch
+                            ["git", "lfs", "fetch", "--all"])  # fetch all lfs files in all commits
 
             __run_git_commands(git_commands)
+
+        if len(branches) > 0:
+            subprocess.getoutput("git checkout master")
+
+        # clean up
+        git_commands = ( ["untrack_lfs.sh"],                  # untrack all lfs files in all revisions
+                         ["git", "gc"],                       # run garbadge collector
+                         ["git", "fsck"],                     # check repo
+                         ["git", "lfs", "uninstall"],         # uninstall LFS hook
+                         ["git", "remote", "rm" , "origin"] ) # remove remote url
+
+        __run_git_commands(git_commands)
+    else:
+        if "empty repository" in git_error:
+            log("Repository is empty")
+        else:
+            debug("MUH " + git_error)
+
 
 
 def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tmp_dir=TMP_DIR, resolve_lfs=False):
@@ -200,16 +210,19 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
         git_clone_cmd = ["git", "clone", "--mirror", repository_url, clone_output_dir]
         log("Cloning " + repository_url + " into " + clone_output_dir)
 
-        with subprocess.Popen(git_clone_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE) as git:
-            git.wait()
-            git_error = str(git.stderr.read()).lower()
+        git = subprocess.Popen(git_clone_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        git.wait(timeout=GIT_TIMEOUT)
+        git_error = str(git.stderr.read()).lower()
 
-            # when cloning an empty repo via https git returns 403 :(
-            if ("fatal" in git_error or "error" in git_error) and not "error: 403" in git_error:
-                if "empty repository" in git_error:
-                    log("Repository is empty")
-                else:
-                    raise CloneError(repository_url, "Failed cloning: " + str(git_error))
+        if git_error:
+            debug("Git error: " + git_error)
+
+        # when cloning an empty repo via https git returns 403 :(
+        if ("fatal" in git_error or "error" in git_error) and not "error: 403" in git_error:
+            if "empty repository" in git_error:
+                log("Repository is empty")
+            else:
+                raise CloneError(repository_url, "Failed cloning: " + str(git_error))
 
     # zip repo
     archive_directory(project, 'repository', clone_output_dir, output_basedir)

@@ -31,7 +31,7 @@ import requests
 from multiprocessing import Process
 from .api import API_BASE_URL
 from .exception import WebError, ReadError, ParseError
-from gitlab_config import SERVER, TOKEN, CLONE_ACCESS_TOKEN, REPOSITORY_DIR, BACKUP_DIR, UPLOAD_DIR, TMP_DIR, ERROR_LOG, LOG_ERRORS, LOG_TIMESTAMP
+from gitlab_config import SERVER, TOKEN, CLONE_ACCESS_TOKEN, REPOSITORY_DIR, BACKUP_DIR, UPLOAD_DIR, TMP_DIR, ERROR_LOG, LOG_ERRORS, LOG_TIMESTAMP, TAR_TIMEOUT, GIT_TIMEOUT, API_TIMEOUT
 
 #
 # Configuration
@@ -39,30 +39,38 @@ from gitlab_config import SERVER, TOKEN, CLONE_ACCESS_TOKEN, REPOSITORY_DIR, BAC
 
 QUIET=False
 DEBUG=False
-TIMEOUT=15
 
 
 #
 # Subroutines
 #
 
+def log_prefix():
+    ts = datetime.datetime.now().strftime(LOG_TIMESTAMP)
+
+    if DEBUG:
+        return "\n[%d]-[%s]\n\t" % (os.getpid(), ts)
+    else:
+        return ""
+
+
 def log(message):
     """
     Log a message to STDOUT
     """
     if not QUIET:
-        print(message)
+        print("%s%s" % (log_prefix(), message))
+
 
 def error(message):
     """
     Log an error message
     """
-    log(">>> ERROR: " + message)
+    print("%s>>> ERROR: %s" % (log_prefix(), message))
 
     if LOG_ERRORS:
-        ts = datetime.datetime.now().strftime(LOG_TIMESTAMP)
-
         with open(ERROR_LOG, "a") as err:
+            ts = datetime.datetime.now().strftime(LOG_TIMESTAMP)
             err.write("[%s] %s\n" % (ts, message))
 
 
@@ -78,7 +86,7 @@ def debug(message):
     Log a debug message
     """
     if DEBUG:
-        log("[%d] DEBUG: %s" % (os.getpid(), message))
+        log("DEBUG: " + message)
 
 
 def rest_api_call(url, data={}, method="POST"):
@@ -95,13 +103,13 @@ def rest_api_call(url, data={}, method="POST"):
         debug(method + "\n\turl " + url + "\n\tdata " + str(data) + "\n")
 
         if method == "GET":
-            response = requests.get(url, headers={"PRIVATE-TOKEN" : TOKEN}, timeout=TIMEOUT)
+            response = requests.get(url, headers={"PRIVATE-TOKEN" : TOKEN}, timeout=API_TIMEOUT)
         elif method == "PUT":
-            response = requests.put(url, data=data, headers={"PRIVATE-TOKEN" : TOKEN}, timeout=TIMEOUT)
+            response = requests.put(url, data=data, headers={"PRIVATE-TOKEN" : TOKEN}, timeout=API_TIMEOUT)
         elif method == "DELETE":
             response = requests.delete(url, headers={"PRIVATE-TOKEN" : TOKEN}, timeout=TIMEOUT)
         else:
-            response = requests.post(url, data=data, headers={"PRIVATE-TOKEN" : TOKEN}, timeout=TIMEOUT)
+            response = requests.post(url, data=data, headers={"PRIVATE-TOKEN" : TOKEN}, timeout=API_TIMEOUT)
     except (requests.exceptions.ConnectionError, requests.exceptions.RequestException) as e:
         error_msg = "Request to url %s failed: %s" % (url, str(e))
         response = None
@@ -114,9 +122,9 @@ def rest_api_call(url, data={}, method="POST"):
         response = None
 
     if response:
-        debug("RESPONSE " + str(response.status_code) + " " + response.text + "\n")
+        debug("RESPONSE " + str(response.status_code) + " " + response.text)
     else:
-        debug("NO RESPONSE\n")
+        debug("NO RESPONSE")
 
     if error_msg:
         error("ERROR " + error_msg)

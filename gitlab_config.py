@@ -9,3 +9,6 @@ TMP_DIR="/var/opt/gitlab/git-data/tmp""
 ERROR_LOG="/var/log/gitlab/gitlab_backup_error.log"
 LOG_TIMESTAMP="%d.%m.%Y %H:%M:%S"
 LOG_ERRORS=True
+TAR_TIMEOUT=500
+GIT_TIMEOUT=500
+API_TIMEOUT=15
