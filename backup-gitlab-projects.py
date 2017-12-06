@@ -136,6 +136,6 @@ else:
 
         time.sleep(10)
 
-    terminate_all_processes()
+#    terminate_all_processes()
 
 sys.exit(0)
