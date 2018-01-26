@@ -31,7 +31,7 @@ from . import permissions
 # SUBROUTINES
 #
 
-def create_group(groupname=None, owner=None, comment=None, end_date=None):
+def create_group(groupname=None, owner=None, comment=None, end_date=None, visibility_level="private"):
     """
     Create a new group with given owner
     Return group details as json
@@ -48,7 +48,7 @@ def create_group(groupname=None, owner=None, comment=None, end_date=None):
     group = post(CREATE_GROUP % (API_BASE_URL,), {"name": groupname,
                                              "path": groupname,
                                              "description": description,
-                                             "visibility_level": 0,
+                                             "visibility_level": visibility_level,
                                              "lfs_enabled": 1})
 
     if group:
