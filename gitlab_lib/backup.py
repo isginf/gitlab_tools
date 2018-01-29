@@ -1,7 +1,7 @@
 #
 # Central lib for Gitlab Tools - Backup code
 #
-# Copyright 2017 ETH Zurich, ISGINF, Bastian Ballmann
+# Copyright 2018 ETH Zurich, ISGINF, Bastian Ballmann
 # Email: bastian.ballmann@inf.ethz.ch
 # Web: http://www.isg.inf.ethz.ch
 #
@@ -139,9 +139,10 @@ def __archive_repository(repository_url, clone_output_dir):
 
     # when an error occurend  and we did not get error: 403
     # which means cloning an empty repo via https
-    if ("fatal" in git_error or "error" in git_error) and not "error: 403" in git_error:
+    if ("fatal" in git_error or "error" in git_error) and not \
+       ("error: 403" in git_error or "empty repository" in git_error):
         raise CloneError(repository_url, "Failed cloning: " + str(git_error))
-    elif not "error: 403" in git_error:
+    elif not "error: 403" in git_error and not "empty repository":
         os.chdir(clone_output_dir)
 
         # check out all branches except HEAD
@@ -172,7 +173,7 @@ def __archive_repository(repository_url, clone_output_dir):
         if "empty repository" in git_error:
             log("Repository is empty")
         else:
-            debug("MUH " + git_error)
+            error("Git output: " + git_error)
 
 
 
@@ -361,29 +362,33 @@ def backup_project(project, output_basedir, queue, archive=False):
                  component + ".json")
 
 
-def backup(queue, backup_dir, archive=False):
+def backup(work_queue, result_queue, backup_dir, archive=False):
     """
     Backup everything for the given project
     For every project create a dictionary with id_name as pattern
     Dump project metadata and each component as separate JSON files
     """
-    while queue.qsize() > 0:
-        project = queue.get()
+    while work_queue.qsize() > 0:
+        project = work_queue.get()
         output_basedir = os.path.join(backup_dir, "%s_%s_%s" % (project['id'], project['namespace']['name'], project['name']))
 
-        if not project.get("retried"):
+        if project.get("retried") == None:
             project["retried"] = 3
 
         try:
-            backup_project(project, output_basedir, queue, archive)
+            backup_project(project, output_basedir, work_queue, archive)
+            result_queue.put(project)
         except (ArchiveError, CloneError, WebError) as e:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             traceback.print_exception(exc_type, exc_value, exc_traceback, limit=3, file=sys.stdout)
             error(str(e))
 
             if project.get("retried") > 0:
-                debug("Retrying backup of project %s/%s [%d]" % (project['namespace']['name'], project['name'], project['id']))
+                info("Retrying backup of project %s/%s [%d]" % (project['namespace']['name'], project['name'], project['id']))
                 project["retried"] = project["retried"] - 1
 
                 debug("New retry value of %d for project %s/%s [%d]" % (project["retried"], project['namespace']['name'], project['name'], project['id']))
-                queue.put(project)
+                work_queue.put(project)
+            else:
+                error("Failed to backup project %s/%s [%d]. Retried 3 times. Giving up... :(" % (project["retried"], project['namespace']['name'], project['name'], project['id']))
+                result_queue.put(project)
