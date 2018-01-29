@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python3 -u
 
 #
 # Dump Gitlab metadata per project using the REST API
@@ -70,7 +70,8 @@ gitlab_lib.core.REPOSITORY_DIR = args.repository
 gitlab_lib.core.BACKUP_DIR = args.output
 gitlab_lib.core.UPLOAD_DIR = args.upload
 
-queue = Queue()
+work_queue = Queue()
+result_queue = Queue()
 processes = []
 nr_of_processes = int(args.number)
 
@@ -101,41 +102,45 @@ if not os.path.exists(gitlab_lib.core.BACKUP_DIR):
 if args.user:
     gitlab_lib.backup_user_metadata(args.user)
 
+if not gitlab_lib.QUIET: sys.stdout.write("Setting up work queue")
+
 # Backup only projects found by given project id or name
 if args.project:
     for project in gitlab_lib.get_project_metadata(args.project):
-        queue.put(project)
+        if not gitlab_lib.QUIET: sys.stdout.write(".")
+        work_queue.put(project)
 
 # Backup all projects or only the projects of a single user
 else:
     for project in gitlab_lib.get_projects(args.user, personal=True):
-        queue.put(project)
+        if not gitlab_lib.QUIET: sys.stdout.write(".")
+        work_queue.put(project)
 
-if queue.qsize() == 0:
+if not gitlab_lib.QUIET: sys.stdout.write("\n")
+
+if work_queue.qsize() == 0:
     gitlab_lib.error("Cannot find any projects to backup!")
 else:
-    if nr_of_processes > queue.qsize():
-        nr_of_processes = queue.qsize()
+    if nr_of_processes > work_queue.qsize():
+        nr_of_processes = work_queue.qsize()
 
     # Start processes and let em backup every project
     for process in range(nr_of_processes):
-        processes.append( gitlab_lib.create_process(gitlab_lib.backup, (queue, args.output, args.archive)) )
+        processes.append( gitlab_lib.create_process(gitlab_lib.backup, (work_queue, result_queue, args.output, args.archive)) )
 
     # Check if a process died and must be restarted
-    while queue.qsize() > 0:
-        gitlab_lib.debug("Queue size: " + str(queue.qsize()))
+    while result_queue.qsize() < work_queue.qsize():
+        gitlab_lib.debug("Work queue size: " + str(work_queue.qsize()))
 
         for (i, process) in enumerate(processes):
             if not process.is_alive():
                 gitlab_lib.debug("Found dead process")
                 del processes[i]
 
-        if len(processes) < int(args.number) and queue.qsize() > len(processes):
+        if len(processes) < int(args.number) and work_queue.qsize() > len(processes):
             gitlab_lib.debug("Starting new process")
-            processes.append( gitlab_lib.create_process(gitlab_lib.backup, (queue, args.output, args.archive)) )
+            processes.append( gitlab_lib.create_process(gitlab_lib.backup, (work_queue, result_queue, args.output, args.archive)) )
 
         time.sleep(10)
-
-#    terminate_all_processes()
 
 sys.exit(0)
