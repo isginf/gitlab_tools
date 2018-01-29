@@ -52,7 +52,8 @@ def prepare_restore_data(project_id, entry):
                 "created_at",
                 "updated_at",
                 "expires_at",
-                "web_url"
+                "web_url",
+                "notes",
                 "merge_when_pipeline_succeeds",
                 "work_in_progress",
                 "user_notes_count",
@@ -115,15 +116,20 @@ def restore_repository(backup_archive, repository_base_dir, project_name, suffix
 
     # unpack repo
     tar.extractall(tmp_dir.name)
-    os.chdir(os.path.dirname(tmp_dir.name))
+
+    if os.path.exists(repository_dest):
+        shutil.rmtree(repository_dest)
 
     if archive:
+        os.chdir(os.path.dirname(tmp_dir.name))
+
         # remove lfs config
         if os.path.exists(os.path.join(tmp_dir.name, ".gitattributes")):
             log("Removing .gitattributes file")
             os.unlink(os.path.join(tmp_dir.name, ".gitattributes"))
 
         # convert to bare repo
+        log("Converting to bare repo")
         subprocess.call(["git", "clone", "--bare", os.path.basename(tmp_dir.name)])
         os.chdir(tmp_dir.name + ".git")
 
@@ -144,7 +150,10 @@ def restore_repository(backup_archive, repository_base_dir, project_name, suffix
         os.symlink(os.path.join(GITLAB_DIR, "embedded","service","gitlab-shell","hooks"),
                    os.path.join(repository_dest, "hooks"))
 
-    tmp_dir.cleanup()
+    try:
+        tmp_dir.cleanup()
+    except FileNotFoundError:
+        pass
 
     # reset dashboard
     subprocess.call(["gitlab-rake", "cache:clear"])
@@ -263,11 +272,6 @@ def restore_snippets(backup_dir, project, entry):
         entry['code'] = parse_json(snippet_content)
 
         if entry['code']:
-            debug("RESTORE ENTRY\n\tcomponent %s\n\turl %s\n\tproject %s\n\tentry %s\n" % (entry['component'],
-                                                                                           PROJECT_COMPONENTS[entry['component']],
-                                                                                           project['id'],
-                                                                                           prepare_restore_data(project['id'], entry)))
-
             result = rest_api_call(PROJECT_COMPONENTS["snippets"] % (API_BASE_URL, project['id']),
                                    prepare_restore_data(project['id'], entry)).json()
 
