@@ -147,7 +147,7 @@ if not project_data:
     project_data = gitlab_lib.restore_project(args.backup_dir, args.project, args.namespace)
 
 # Restore repository and wiki
-if args.repository:
+if args.repository and not args.component:
     old_project_name = os.path.basename(args.backup_dir.rstrip("/")).split("_")[2]
     backup_archive = os.path.join(args.backup_dir, old_project_name + ".git.tgz")
 
