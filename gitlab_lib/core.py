@@ -252,6 +252,7 @@ def create_process(func, args):
     Create and start a new subprocess
     """
     p = Process(target=func, args=args)
+    p.daemon = True
     p.start()
 
     return p
