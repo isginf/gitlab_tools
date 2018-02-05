@@ -102,7 +102,7 @@ if not os.path.exists(gitlab_lib.core.BACKUP_DIR):
 if args.user:
     gitlab_lib.backup_user_metadata(args.user)
 
-if not gitlab_lib.QUIET: sys.stdout.write("Setting up work queue")
+if not gitlab_lib.core.QUIET: sys.stdout.write("Setting up work queue")
 
 # Backup only projects found by given project id or name
 if args.project:
@@ -113,24 +113,26 @@ if args.project:
 # Backup all projects or only the projects of a single user
 else:
     for project in gitlab_lib.get_projects(args.user, personal=True):
-        if not gitlab_lib.QUIET: sys.stdout.write(".")
+        if not gitlab_lib.core.QUIET: sys.stdout.write(".")
         work_queue.put(project)
 
-if not gitlab_lib.QUIET: sys.stdout.write("\n")
+if not gitlab_lib.core.QUIET: sys.stdout.write("\n")
 
 if work_queue.qsize() == 0:
     gitlab_lib.error("Cannot find any projects to backup!")
 else:
-    if nr_of_processes > work_queue.qsize():
-        nr_of_processes = work_queue.qsize()
+    nr_of_jobs = work_queue.qsize()
+
+    if nr_of_processes > nr_of_jobs:
+        nr_of_processes = nr_of_jobs
 
     # Start processes and let em backup every project
     for process in range(nr_of_processes):
         processes.append( gitlab_lib.create_process(gitlab_lib.backup, (work_queue, result_queue, args.output, args.archive)) )
 
     # Check if a process died and must be restarted
-    while result_queue.qsize() < work_queue.qsize():
-        gitlab_lib.debug("Work queue size: " + str(work_queue.qsize()))
+    while result_queue.qsize() < nr_of_jobs -1:
+        gitlab_lib.debug("Work queue size: %d Result queue size: %d Nr of jobs: %d " % (work_queue.qsize(), result_queue.qsize(), nr_of_jobs))
 
         for (i, process) in enumerate(processes):
             if not process.is_alive():
