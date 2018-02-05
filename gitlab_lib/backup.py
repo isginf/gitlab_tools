@@ -102,7 +102,7 @@ def archive_directory(project, component, directory, output_basedir):
         log("No %s found for project %s [ID %s]" % (component, project['name'], project['id']))
 
 
-def __check_git_error(git_error):
+def __check_git_error(repository_url, git_cmd, git_error):
     if git_error != b'':
         debug("Git error " + git_error)
 
@@ -115,18 +115,20 @@ def __check_git_error(git_error):
             raise CloneError(repository_url, "Command %s failed: %s" %(git_cmd, git_error))
 
 
-def __run_git_commands(git_commands):
+def __run_git_commands(repository_url, git_commands):
     for git_cmd in git_commands:
-        debug("Running git command " + str(git_cmd))
+        debug("Running git command %s on repository %s" % (str(git_cmd), repository_url))
         git = subprocess.Popen(git_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         git.wait(timeout=GIT_TIMEOUT)
-        __check_git_error(str(git.stderr.read()))
+        __check_git_error(repository_url, git_cmd, str(git.stderr.read()))
 
 
 def __archive_repository(repository_url, clone_output_dir):
     """
     Clone a repo with all branches and resolve lfs files in all commits
     """
+    os.chdir("/")
+
     git_clone_cmd = ["git", "lfs", "clone", repository_url, clone_output_dir]
     log("Cloning " + repository_url + " into " + clone_output_dir)
 
@@ -142,7 +144,7 @@ def __archive_repository(repository_url, clone_output_dir):
     if ("fatal" in git_error or "error" in git_error) and not \
        ("error: 403" in git_error or "empty repository" in git_error):
         raise CloneError(repository_url, "Failed cloning: " + str(git_error))
-    elif not "error: 403" in git_error and not "empty repository":
+    elif not "error: 403" in git_error and not "empty repository" in git_error:
         os.chdir(clone_output_dir)
 
         # check out all branches except HEAD
@@ -156,23 +158,22 @@ def __archive_repository(repository_url, clone_output_dir):
             git_commands = (["git", "checkout", branch],       # checkout branch
                             ["git", "lfs", "fetch", "--all"])  # fetch all lfs files in all commits
 
-            __run_git_commands(git_commands)
+            __run_git_commands(repository_url, git_commands)
 
         if len(branches) > 0:
             subprocess.getoutput("git checkout master")
 
         # clean up
         git_commands = ( ["untrack_lfs.sh"],                  # untrack all lfs files in all revisions
-                         ["git", "gc"],                       # run garbadge collector
-                         ["git", "fsck"],                     # check repo
+                         ["git", "remote", "rm", "origin"],   # remove remote url
                          ["git", "lfs", "uninstall"],         # uninstall LFS hook
-                         ["git", "remote", "rm" , "origin"] ) # remove remote url
+                         ["git", "fsck"] )                    # check repo
 
-        __run_git_commands(git_commands)
+        __run_git_commands(repository_url, git_commands)
     else:
         if "empty repository" in git_error:
             log("Repository is empty")
-        else:
+        elif not git_error == b'':
             error("Git output: " + git_error)
 
 
@@ -203,7 +204,7 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
             debug("Removing " + clone_output_dir)
             shutil.rmtree(clone_output_dir)
         except (OSError, PermissionError, FileNotFoundError) as e:
-            raise CloneError(repository_url, str(e))
+            error("Cannot remove clone output dir " + clone_output_dir)
 
     if resolve_lfs:
         __archive_repository(repository_url, clone_output_dir)
@@ -380,15 +381,17 @@ def backup(work_queue, result_queue, backup_dir, archive=False):
             result_queue.put(project)
         except (ArchiveError, CloneError, WebError) as e:
             exc_type, exc_value, exc_traceback = sys.exc_info()
-            traceback.print_exception(exc_type, exc_value, exc_traceback, limit=3, file=sys.stdout)
+
+            if DEBUG:
+                traceback.print_exception(exc_type, exc_value, exc_traceback, limit=3, file=sys.stdout)
+
             error(str(e))
 
             if project.get("retried") > 0:
-                info("Retrying backup of project %s/%s [%d]" % (project['namespace']['name'], project['name'], project['id']))
+                info("Retrying backup of project %s/%s [%s]" % (project['namespace']['name'], project['name'], project['id']))
                 project["retried"] = project["retried"] - 1
 
-                debug("New retry value of %d for project %s/%s [%d]" % (project["retried"], project['namespace']['name'], project['name'], project['id']))
                 work_queue.put(project)
             else:
-                error("Failed to backup project %s/%s [%d]. Retried 3 times. Giving up... :(" % (project["retried"], project['namespace']['name'], project['name'], project['id']))
+                error("Failed to backup project %s/%s [%s]. Retried 3 times. Giving up... :(" % (project['namespace']['name'], project['name'], project['id']))
                 result_queue.put(project)
