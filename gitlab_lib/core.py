@@ -107,7 +107,7 @@ def rest_api_call(url, data={}, method="POST"):
         elif method == "PUT":
             response = requests.put(url, data=data, headers={"PRIVATE-TOKEN" : TOKEN}, timeout=API_TIMEOUT)
         elif method == "DELETE":
-            response = requests.delete(url, headers={"PRIVATE-TOKEN" : TOKEN}, timeout=TIMEOUT)
+            response = requests.delete(url, headers={"PRIVATE-TOKEN" : TOKEN}, timeout=API_TIMEOUT)
         else:
             response = requests.post(url, data=data, headers={"PRIVATE-TOKEN" : TOKEN}, timeout=API_TIMEOUT)
     except (requests.exceptions.ConnectionError, requests.exceptions.RequestException) as e:
@@ -146,10 +146,13 @@ def make_request(method="GET", rest_url=None, data={}, ignore_errors=False):
         if not ignore_errors:
             raise WebError(rest_url, data, method, "Call to url %s failed: %s\n" % (rest_url, str(e)))
 
-    if type(result) == dict and result.get('message'):
-        if not ignore_errors:
-            raise WebError(rest_url, data, method, "Request to %s failed: %s\n" % (rest_url, result.get('message')))
+#    if type(result) == dict and result.get('message'):
+#        if not ignore_errors:
+#            raise WebError(rest_url, data, method, "Request to %s failed: %s\n" % (rest_url, result.get('message')))
+#
+#        result = []
 
+    if type(result) == dict or type(result) == str:
         result = []
 
     return result
