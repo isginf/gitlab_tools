@@ -152,7 +152,7 @@ def make_request(method="GET", rest_url=None, data={}, ignore_errors=False):
 #
 #        result = []
 
-    if type(result) == dict or type(result) == str:
+    if type(result) == str:
         result = []
 
     return result
