@@ -22,6 +22,7 @@
 # Loading modules
 #
 
+import re
 import os
 import sys
 import json
@@ -149,9 +150,12 @@ def __archive_repository(repository_url, clone_output_dir):
 
         # check out all branches except HEAD
         branches = list(filter(lambda x: not "HEAD" in x and not x == "master", subprocess.getoutput('git branch -r').splitlines()))
+        replace_remotes = list(map(lambda x: re.compile(r"^\s*" + x.replace(' ', '') + "/"), subprocess.getoutput('git remote').splitlines()))
 
         for branch in branches:
-            branch = branch.split('/')[1]
+            for remote in replace_remotes:
+                branch = remote.sub("", branch)
+
             branch = branch.replace(' ', '')
             log("Checking out branch %s of repo %s" % (branch, repository_url))
 
@@ -165,9 +169,12 @@ def __archive_repository(repository_url, clone_output_dir):
 
         # clean up
         git_commands = ( ["untrack_lfs.sh"],                  # untrack all lfs files in all revisions
-                         ["git", "remote", "rm", "origin"],   # remove remote url
                          ["git", "lfs", "uninstall"],         # uninstall LFS hook
                          ["git", "fsck"] )                    # check repo
+
+        # remove all remote urls
+        for remote in subprocess.getoutput('git remote').splitlines():
+            git_commands.append("git", "remote", "rm", x.replace(' ', ''))
 
         __run_git_commands(repository_url, git_commands)
     else:
@@ -182,7 +189,7 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
     """
     Backup repository either as bare mirror or as LFS resolved checkout
     """
-    repo_dir = os.path.join(repository_dir, project['namespace']['name'], project['name'] + ".git")
+    repo_dir = os.path.join(repository_dir, project['namespace']['name'], project['name'].lower() + ".git")
 
     if not os.path.exists(repo_dir):
         log("No repository found for project %s [ID %s]" % (project['name'], project['id']))
@@ -315,7 +322,7 @@ def backup_user_metadata(user, backup_dir=BACKUP_DIR):
         dump(fetch(USER_EMAILS % (API_BASE_URL, user["id"])), output_basedir, "email.json")
 
 
-def backup_project(project, output_basedir, queue, archive=False):
+def backup_project(project, output_basedir, archive=False):
     """
     Backup a single project
     """
@@ -377,7 +384,7 @@ def backup(work_queue, result_queue, backup_dir, archive=False):
             project["retried"] = 3
 
         try:
-            backup_project(project, output_basedir, work_queue, archive)
+            backup_project(project, output_basedir, archive)
             result_queue.put(project)
         except (ArchiveError, CloneError, WebError) as e:
             exc_type, exc_value, exc_traceback = sys.exc_info()
