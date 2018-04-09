@@ -67,3 +67,13 @@ class ParseError(Exception):
 
     def __str__(self):
         return "Error parsing %s: %s" % (self.data, self.message)
+
+
+class APIError(Exception):
+    """We got unexpected data from an API call"""
+    def __init__(self, url, message):
+        self.url = url
+        self.message = message
+
+    def __str__(self):
+        return "Got unexpected data from api call %s: %s" % (self.url, self.message)
