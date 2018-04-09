@@ -20,6 +20,7 @@
 
 from .core import *
 from .api import *
+from .exception import APIError
 
 
 #
@@ -31,11 +32,19 @@ def user_involved_in_project(username, project):
     Returns true if username is somehow involved in project
     Project must be dict returned by REST API
     """
-    return project['namespace']['name'] == username or \
-        (project.get("owner") and project.get('owner').get('username') == username) or \
-        username in [x.get('username') for x in fetch(PROJECT_MEMBERS % (API_BASE_URL, project["id"]), ignore_errors=True)] or \
-        username in [x.get('username') for x in fetch(GROUP_MEMBERS % (API_BASE_URL, project["namespace"]["id"]), ignore_errors=True)]
+    involved = None
 
+    try:
+        involved = project['namespace']['name'] == username or \
+                   (project.get("owner") and project.get('owner').get('username') == username) or \
+                   username in [x.get('username') for x in fetch(PROJECT_MEMBERS % (API_BASE_URL, project["id"]), ignore_errors=True)]
+
+        if not involved and project["namespace"]["kind"] == "group":
+            involved = username in [x.get('username') for x in fetch(GROUP_MEMBERS % (API_BASE_URL, project["namespace"]["id"]), ignore_errors=True)]
+    except AttributeError as e:
+        raise APIError("user_involved_in_project", "Got unexpected results for %s - %s\nException was %s" % (username, str(project), str(e)))
+
+    return involved
 
 
 def __username_filter(user, usernames_only=False):
