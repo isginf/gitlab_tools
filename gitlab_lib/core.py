@@ -121,6 +121,10 @@ def rest_api_call(url, data={}, method="POST"):
         error("Request to url %s unauthorized! %s" % (url, response.text))
         response = None
 
+    if type(response) == dict and response.get('message'):
+        error("Request to url %s failed! %s" % (url, response.get('message')))
+        response = None
+
     if response:
         debug("RESPONSE " + str(response.status_code) + " " + response.text)
     else:
