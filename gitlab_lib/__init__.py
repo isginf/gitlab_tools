@@ -48,4 +48,5 @@ from .users import *
 #
 
 if os.geteuid() == 0:
-    os.seteuid( pwd.getpwnam("git").pw_uid )
+    os.setgid( pwd.getpwnam("git").pw_gid )
+    os.setuid( pwd.getpwnam("git").pw_uid )
