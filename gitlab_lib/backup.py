@@ -104,14 +104,16 @@ def archive_directory(project, component, directory, output_basedir):
 
 
 def __check_git_error(repository_url, git_cmd, git_error):
-    if git_error != b'':
+    if git_error != '':
         debug("Git error " + git_error)
 
     git_error = git_error.lower()
 
     if "fatal" in git_error or "error" in git_error:
         if "empty repository" in git_error:
-           log("Repository is empty")
+            log("Repository is empty")
+        elif re.match(r"fatal: unable to create '.+?\.lock': permission denied", git_error):
+            log("Ignoring " + git_error)
         else:
             raise CloneError(repository_url, "Command %s failed: %s" %(git_cmd, git_error))
 
@@ -121,7 +123,7 @@ def __run_git_commands(repository_url, git_commands):
         debug("Running git command %s on repository %s" % (str(git_cmd), repository_url))
         git = subprocess.Popen(git_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         git.wait(timeout=GIT_TIMEOUT)
-        __check_git_error(repository_url, git_cmd, str(git.stderr.read()))
+        __check_git_error(repository_url, git_cmd, git.stderr.read().decode('UTF-8'))
 
 
 def __archive_repository(repository_url, clone_output_dir):
@@ -168,13 +170,13 @@ def __archive_repository(repository_url, clone_output_dir):
             subprocess.getoutput("git checkout master")
 
         # clean up
-        git_commands = ( ["untrack_lfs.sh"],                  # untrack all lfs files in all revisions
+        git_commands = [ ["untrack_lfs.sh"],                  # untrack all lfs files in all revisions
                          ["git", "lfs", "uninstall"],         # uninstall LFS hook
-                         ["git", "fsck"] )                    # check repo
+                         ["git", "fsck"] ]                    # check repo
 
         # remove all remote urls
         for remote in subprocess.getoutput('git remote').splitlines():
-            git_commands.append("git", "remote", "rm", x.replace(' ', ''))
+            git_commands.append(["git", "remote", "rm", remote.replace(' ', '')])
 
         __run_git_commands(repository_url, git_commands)
     else:
@@ -190,6 +192,8 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
     Backup repository either as bare mirror or as LFS resolved checkout
     """
     repo_dir = os.path.join(repository_dir, project['namespace']['name'], project['name'].lower() + ".git")
+    git_error = None
+    backup_failed = False
 
     if not os.path.exists(repo_dir):
         log("No repository found for project %s [ID %s]" % (project['name'], project['id']))
@@ -226,16 +230,16 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
         if git_error:
             debug("Git error: " + git_error)
 
-        # when cloning an empty repo via https git returns 403 :(
-        if ("fatal" in git_error or "error" in git_error) and not "error: 403" in git_error:
-            if "empty repository" in git_error:
-                log("Repository is empty")
-            else:
-                raise CloneError(repository_url, "Failed cloning: " + str(git_error))
-
-    # zip repo
-    archive_directory(project, 'repository', clone_output_dir, output_basedir)
-    os.chdir("/")
+    # when cloning an empty repo via https git returns 403 :(
+    if git_error and ("fatal" in git_error or "error" in git_error) and not "error: 403" in git_error:
+        if "empty repository" in git_error:
+            log("Repository is empty")
+        else:
+            backup_failed = True
+    else:
+        # zip repo
+        archive_directory(project, 'repository', clone_output_dir, output_basedir)
+        os.chdir("/")
 
     # removed temporary cloned repository
     if os.path.exists(clone_output_dir):
@@ -243,7 +247,10 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
             debug("Removing " + clone_output_dir)
             shutil.rmtree(clone_output_dir)
         except (OSError, PermissionError, FileNotFoundError) as e:
-            pass
+            error("Cannot remove " + clone_output_dir + ": " + str(e))
+
+    if backup_failed:
+        raise CloneError(repository_url, "Failed cloning: " + str(git_error))
 
 
 def backup_local_data(project, output_basedir, repository_dir=REPOSITORY_DIR, upload_dir=UPLOAD_DIR):
