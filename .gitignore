@@ -60,3 +60,6 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
+
+tests/gitlab_config.py
+tests/.pytest_cache/*
