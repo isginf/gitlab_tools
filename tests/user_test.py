@@ -10,6 +10,9 @@ class UserTest(unittest.TestCase):
     def setUp(self):
         pass
 
+    def tearDown(self):
+        gitlab_lib.delete_user("testuser")
+
     def _create_test_user(self):
         return gitlab_lib.create_user("testuser", "Test User", "test@localhost", {"reset_password": "no",
                                                                                   "password": "woohoo123",
@@ -19,9 +22,6 @@ class UserTest(unittest.TestCase):
                                                                                   "provider": "ldapmain",
                                                                                   "extern_uid": gitlab_config.LDAP_DN.replace("$USERNAME$", "testuser"),
                                                                                   "skip_confirmation": "yes"})
-
-    def tearDown(self):
-        gitlab_lib.delete_user("testuser")
 
     def test_get_user(self):
         user = gitlab_lib.get_user("root")
