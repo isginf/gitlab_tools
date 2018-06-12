@@ -12,3 +12,4 @@ LOG_ERRORS=True
 TAR_TIMEOUT=500
 GIT_TIMEOUT=500
 API_TIMEOUT=15
+LDAP_DN="cn=$USERNAME$,ou=users,ou=id,ou=auth,o=domain,c=tld"
