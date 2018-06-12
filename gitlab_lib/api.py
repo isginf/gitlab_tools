@@ -27,7 +27,7 @@ API_BASE_URL = "https://%s/api/v4" % (SERVER,)
 #
 
 CREATE_USER = "%s/users"
-DELETE_USER = "%s/users/%d"
+DELETE_USER = "%s/users/%s"
 GET_NO_OF_USERS = "%s/users?per_page=%d&page=%d"
 USER_METADATA = "%s/users/%s"
 USER_BY_USERNAME = "%s/users?username=%s"
