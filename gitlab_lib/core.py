@@ -125,6 +125,10 @@ def rest_api_call(url, data={}, method="POST"):
         error("Request to url %s failed! %s" % (url, response.get('message')))
         response = None
 
+    elif type(response) == dict and response.get('error'):
+        error("Request to url %s failed! %s" % (url, response.get('error')))
+        response = None
+
     if response:
         debug("RESPONSE " + str(response.status_code) + " " + response.text)
     else:
@@ -145,7 +149,11 @@ def make_request(method="GET", rest_url=None, data={}, ignore_errors=False):
     result = []
 
     try:
-        result = rest_api_call(rest_url, data=data, method=method).json()
+        result = rest_api_call(rest_url, data=data, method=method)
+ 
+        if not method == "DELETE":
+            result = result.json()
+
     except (TypeError, ValueError) as e:
         if not ignore_errors:
             raise WebError(rest_url, data, method, "Call to url %s failed: %s\n" % (rest_url, str(e)))
