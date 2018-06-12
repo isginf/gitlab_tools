@@ -73,10 +73,10 @@ def create_user(username=None, name=None, email=None, metadata={}):
     metadata["name"] = name
     metadata["username"] = username
     metadata["email"] = email
-
-    user= post(CREATE_USER % (API_BASE_URL,), metadata)
-
-    return user
+    
+    api_url = CREATE_USER % (API_BASE_URL,)
+    
+    return post(api_url, metadata)
 
 
 def delete_user(user):
@@ -87,7 +87,23 @@ def delete_user(user):
     if not type(user) == dict:
         user = get_user(user)
 
-    return delete(DELETE_USER % (API_BASE_URL, user["id"]), {"id": user["id"]})
+    if user:
+        return delete(DELETE_USER % (API_BASE_URL, user["id"]))
+
+
+def update_user(user, metadata):
+    """
+    Update the given user with the properties in dict metadata
+    """
+    if not type(user) == dict:
+        user = get_user(user)
+
+        if not user:
+            raise ValueError("Unknown user " + str(user))
+
+    metadata['id'] = user['id']
+
+    return put(USER_METADATA % (API_BASE_URL, user.get('id')), metadata)
 
 
 def get_users(chunk_size=100, provider=None, state=None, usernames_only=False):
