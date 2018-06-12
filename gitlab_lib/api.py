@@ -42,6 +42,7 @@ UNBLOCK_USER = "%s/users/%s/unblock"
 #
 
 CREATE_GROUP = "%s/groups"
+DELETE_GROUP = "%s/groups/%s"
 ADD_GROUP_MEMBER = "%s/groups/%d/members"
 GROUP_MEMBERS = "%s/groups/%s/members"
 GROUP_PROJECTS = "%s/groups/%d/projects"

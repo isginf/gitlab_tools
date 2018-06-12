@@ -51,13 +51,25 @@ def create_group(groupname=None, owner=None, comment=None, end_date=None, visibi
                                              "visibility_level": visibility_level,
                                              "lfs_enabled": 1})
 
-    if group:
+    if group and owner:
         user = fetch(USER_BY_USERNAME % (API_BASE_URL, owner))[0]
 
         if user:
             add_group_member(group["id"], user["id"], permissions.ACCESS_LEVEL_OWNER)
 
     return group
+
+
+def delete_group(group):
+    """
+    Deletes the group with the given name or id
+    """
+
+    if not type(group) == dict:
+        group = get_group(group)
+
+    if group:
+        return delete(DELETE_GROUP % (API_BASE_URL, group["id"]))
 
 
 def add_group_member(group, user, access_level=permissions.ACCESS_LEVEL_GUEST):
