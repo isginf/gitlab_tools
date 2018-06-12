@@ -1,7 +1,7 @@
 #
 # Central lib for Gitlab Tools - User code
 #
-# Copyright 2017 ETH Zurich, ISGINF, Bastian Ballmann
+# Copyright 2018 ETH Zurich, ISGINF, Bastian Ballmann
 # Email: bastian.ballmann@inf.ethz.ch
 # Web: http://www.isg.inf.ethz.ch
 #
