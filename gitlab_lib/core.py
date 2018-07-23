@@ -117,6 +117,11 @@ def rest_api_call(url, data={}, method="POST"):
         error_msg = "Request to url %s timedout: %s\n%s" % (url, response.text, str(e))
 
 
+    if response:
+        debug("RESPONSE " + str(response.status_code) + " " + response.text)
+    else:
+        debug("NO RESPONSE")
+
     if response and response.status_code == 401:
         error("Request to url %s unauthorized! %s" % (url, response.text))
         response = None
@@ -128,11 +133,6 @@ def rest_api_call(url, data={}, method="POST"):
     elif type(response) == dict and response.get('error'):
         error("Request to url %s failed! %s" % (url, response.get('error')))
         response = None
-
-    if response:
-        debug("RESPONSE " + str(response.status_code) + " " + response.text)
-    else:
-        debug("NO RESPONSE")
 
     if error_msg:
         error("ERROR " + error_msg)
@@ -150,7 +150,7 @@ def make_request(method="GET", rest_url=None, data={}, ignore_errors=False):
 
     try:
         result = rest_api_call(rest_url, data=data, method=method)
- 
+
         if not method == "DELETE":
             result = result.json()
 
