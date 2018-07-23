@@ -1,7 +1,7 @@
 #
 # Central lib for Gitlab Tools - Projects code
 #
-# Copyright 2017 ETH Zurich, ISGINF, Bastian Ballmann
+# Copyright 2018 ETH Zurich, ISGINF, Bastian Ballmann
 # Email: bastian.ballmann@inf.ethz.ch
 # Web: http://www.isg.inf.ethz.ch
 #
@@ -50,10 +50,14 @@ def delete_project(project):
     Deletes the project with the given name or id
     """
 
-    if not type(project) == dict:
-        project = get_project_metadata(project)
+    project_data = get_project_metadata(project)
 
-    return delete(DELETE_PROJECT % (API_BASE_URL, project["id"]))
+    if len(project_data) == 0:
+        raise ValueError("Unknown project " + project)
+    elif len(project_data) > 1:
+        raise ValueError("Found more than one project " + project)
+
+    return delete(DELETE_PROJECT % (API_BASE_URL, project_data[0]["id"]))
 
 
 def get_projects(username=None, personal=False, with_archived=True, only_archived=False):
@@ -89,6 +93,14 @@ def get_projects(username=None, personal=False, with_archived=True, only_archive
         yield project
 
 
+def get_project(project):
+    project = get_project_metadata(project)
+
+    if len(project) == 0:
+        return {}
+    else:
+        return project[0]
+
 def get_project_metadata(project):
     """
     project can be id or name
@@ -99,13 +111,16 @@ def get_project_metadata(project):
     """
     data = []
 
-    try:
-        data.append( fetch(PROJECT_METADATA % (API_BASE_URL, int(project))) )
-    except ValueError:
-        projects = fetch(PROJECT_SEARCH % (API_BASE_URL, project))
+    if type(project) == dict:
+        data.append(project)
+    else:
+        try:
+            data.append( fetch(PROJECT_METADATA % (API_BASE_URL, int(project))) )
+        except ValueError:
+            projects = fetch(PROJECT_SEARCH % (API_BASE_URL, project))
 
-        if len(projects) > 0:
-            data.append( fetch(PROJECT_METADATA % (API_BASE_URL, int(projects[0]["id"]))) )
+            if len(projects) > 0:
+                data.append( fetch(PROJECT_METADATA % (API_BASE_URL, int(projects[0]["id"]))) )
 
     return data
 
