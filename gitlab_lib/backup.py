@@ -191,13 +191,16 @@ def backup_repository(project, output_basedir, repository_dir=REPOSITORY_DIR, tm
     """
     Backup repository either as bare mirror or as LFS resolved checkout
     """
-    repo_dir = os.path.join(repository_dir, project['namespace']['name'], project['name'].lower() + ".git")
+    repo_dir = os.path.join(repository_dir, project['namespace']['name'], project['name'] + ".git")
     git_error = None
     backup_failed = False
 
     if not os.path.exists(repo_dir):
-        log("No repository found for project %s [ID %s]" % (project['name'], project['id']))
-        return None
+        repo_dir = os.path.join(repository_dir, project['namespace']['name'], project['name'].lower() + ".git")
+
+        if not os.path.exists(repo_dir):
+            log("No repository found for project %s/%s [ID %s]" % (project['namespace']['name'], project['name'], project['id']))
+            return None
 
     backup_tmp_dir = os.path.join(tmp_dir, "backup")
     namespace_tmp_dir = os.path.join(backup_tmp_dir, project['namespace']['name'])
