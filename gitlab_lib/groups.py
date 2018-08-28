@@ -112,6 +112,15 @@ def get_group_projects(group):
     return fetch(GROUP_PROJECTS % (API_BASE_URL, convert_group_to_id(group)))
 
 
+def get_group_members(group):
+    """
+    Get members of group
+    Group can be either name or id
+    """
+
+    return fetch(GROUP_MEMBERS % (API_BASE_URL, convert_group_to_id(group)))
+
+
 def convert_group_to_id(group):
     """
     Try to use group as id (int)
