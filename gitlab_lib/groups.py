@@ -85,6 +85,20 @@ def add_group_member(group, user, access_level=permissions.ACCESS_LEVEL_GUEST):
                                                          "access_level": access_level})
 
 
+def edit_group_member(group, user, access_level):
+    """
+    Update permission of a member in the given group
+    Group and user parameter can be either name or id
+    """
+
+    group_id = convert_group_to_id(group)
+    user_id = convert_group_to_id(user)
+
+    return put(EDIT_GROUP_MEMBER % (API_BASE_URL, group_id, user_id), {"id": group_id,
+                                                                       "user_id": user_id,
+                                                                       "access_level": access_level})
+
+
 def get_group(group=None):
     """
     Get metadata of a single group

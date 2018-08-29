@@ -111,10 +111,8 @@ def get_project_metadata(project):
         try:
             data.append( fetch(PROJECT_METADATA % (API_BASE_URL, int(project))) )
         except ValueError:
-            projects = fetch(PROJECT_SEARCH % (API_BASE_URL, project))
-
-            if len(projects) > 0:
-                data.append( fetch(PROJECT_METADATA % (API_BASE_URL, int(projects[0]["id"]))) )
+            for project in fetch(PROJECT_SEARCH % (API_BASE_URL, project)):
+                data.append( fetch(PROJECT_METADATA % (API_BASE_URL, int(project["id"]))) )
 
     return data
 
@@ -125,7 +123,7 @@ def get_project_members(project_id):
     Returns a list of dictionaries
     """
 
-    return fetch(PROJECT_MEMBERS % (API_BASE_URL, project_id))
+    return fetch(PROJECT_MEMBERS % (API_BASE_URL, int(project_id)))
 
 
 def add_project_member(project_id, user, access_level=permissions.ACCESS_LEVEL_GUEST):
