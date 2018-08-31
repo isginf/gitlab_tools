@@ -130,7 +130,7 @@ def add_project_member(project_id, user, access_level=permissions.ACCESS_LEVEL_G
     """
     Add a member with the given access_level to the specified project id
     """
-    return post(ADD_PROJECT_MEMBER % (API_BASE_URL, project_id), {"id": project_id,
+    return post(ADD_PROJECT_MEMBER % (API_BASE_URL, project_id), {"id": int(project_id),
                                                              "user_id": convert_user_to_id(user),
                                                              "access_level": access_level})
 
