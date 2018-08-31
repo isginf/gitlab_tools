@@ -191,8 +191,13 @@ def fetch_per_page(api_url, chunk_size=100, filter_func=None):
     """
     page = 1
 
+    if "?" in api_url:
+        api_url += "&per_page=%d&page=%d"
+    else:
+        api_url += "?per_page=%d&page=%d"
+
     while 1:
-        buffer = fetch(api_url % (API_BASE_URL, chunk_size, page))
+        buffer = fetch(api_url % (chunk_size, page))
 
         if buffer:
             if filter_func:

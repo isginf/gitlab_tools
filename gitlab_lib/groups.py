@@ -132,7 +132,10 @@ def get_group_members(group):
     Group can be either name or id
     """
 
-    return fetch(GROUP_MEMBERS % (API_BASE_URL, convert_group_to_id(group)))
+    api_url = GROUP_MEMBERS % (API_BASE_URL, convert_group_to_id(group))
+
+    for member in fetch_per_page(api_url):
+        yield member
 
 
 def convert_group_to_id(group):

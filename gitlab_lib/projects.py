@@ -71,7 +71,7 @@ def get_projects(username=None, personal=False, only_archived=False):
     True
     """
     chunk_size = 100
-    api_url = GET_NO_OF_PROJECTS
+    api_url = GET_NO_OF_PROJECTS % (API_BASE_URL, )
     filter_func = None
 
     if username:
