@@ -37,10 +37,10 @@ def user_involved_in_project(username, project):
     try:
         involved = project['namespace']['name'] == username or \
                    (project.get("owner") and project.get('owner').get('username') == username) or \
-                   username in [x.get('username') for x in fetch(PROJECT_MEMBERS % (API_BASE_URL, project["id"]), ignore_errors=True)]
+                   username in [x.get('username') for x in fetch_per_page(PROJECT_MEMBERS % (API_BASE_URL, project["id"]), ignore_errors=True)]
 
         if not involved and project["namespace"]["kind"] == "group":
-            involved = username in [x.get('username') for x in fetch(GROUP_MEMBERS % (API_BASE_URL, project["namespace"]["id"]), ignore_errors=True)]
+            involved = username in [x.get('username') for x in fetch_per_page(GROUP_MEMBERS % (API_BASE_URL, project["namespace"]["id"]), ignore_errors=True)]
     except AttributeError as e:
         raise APIError("user_involved_in_project", "Got unexpected results for %s - %s\nException was %s" % (username, str(project), str(e)))
 
@@ -73,9 +73,9 @@ def create_user(username=None, name=None, email=None, metadata={}):
     metadata["name"] = name
     metadata["username"] = username
     metadata["email"] = email
-    
+
     api_url = CREATE_USER % (API_BASE_URL,)
-    
+
     return post(api_url, metadata)
 
 

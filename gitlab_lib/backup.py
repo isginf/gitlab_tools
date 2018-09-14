@@ -275,7 +275,7 @@ def backup_snippets(project, output_basedir):
     """
     log(u"Backing up snippets from project %s [ID %s]" % (project['name'], project['id']))
 
-    snippets = fetch(PROJECT_COMPONENTS['snippets'] % (API_BASE_URL, project['id']))
+    snippets = list(fetch_per_page(PROJECT_COMPONENTS['snippets'] % (API_BASE_URL, project['id'])))
 
     dump(snippets, output_basedir, "snippets.json")
 
@@ -284,7 +284,7 @@ def backup_snippets(project, output_basedir):
              output_basedir,
              "snippet_%d_content.dump" % (snippet['id'],))
 
-        notes = fetch(NOTES_FOR_SNIPPET % (API_BASE_URL, project['id'], snippet['id']))
+        notes = list(fetch_per_page(NOTES_FOR_SNIPPET % (API_BASE_URL, project['id'], snippet['id'])))
 
         if notes:
             dump(notes, output_basedir, "snippet_%d_notes.dump" % (snippet['id'],))
@@ -300,7 +300,7 @@ def backup_issues(project, output_basedir):
 
     log(u"Backing up issues from project %s [ID %s]" % (project['name'], project['id']))
 
-    issues = fetch(PROJECT_COMPONENTS['issues'] % (API_BASE_URL, project['id']))
+    issues = list(fetch_per_page(PROJECT_COMPONENTS['issues'] % (API_BASE_URL, project['id'])))
 
     dump(issues, output_basedir, "issues.json")
 

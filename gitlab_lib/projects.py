@@ -123,7 +123,8 @@ def get_project_members(project_id):
     Returns a list of dictionaries
     """
 
-    return fetch(PROJECT_MEMBERS % (API_BASE_URL, int(project_id)))
+    for member in fetch_per_page(PROJECT_MEMBERS % (API_BASE_URL, int(project_id))):
+        yield member
 
 
 def add_project_member(project_id, user, access_level=permissions.ACCESS_LEVEL_GUEST):

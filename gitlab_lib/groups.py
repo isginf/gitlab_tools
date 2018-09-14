@@ -123,7 +123,8 @@ def get_group_projects(group):
     Group can be either name or id
     """
 
-    return fetch(GROUP_PROJECTS % (API_BASE_URL, convert_group_to_id(group)))
+    for project in fetch_per_page(GROUP_PROJECTS % (API_BASE_URL, convert_group_to_id(group))):
+        yield project
 
 
 def get_group_members(group):
