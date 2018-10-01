@@ -182,7 +182,7 @@ def fetch(rest_url, ignore_errors=False):
     return make_request("GET", rest_url, ignore_errors=ignore_errors)
 
 
-def fetch_per_page(api_url, chunk_size=100, filter_func=None):
+def fetch_per_page(api_url, chunk_size=100, filter_func=None, ignore_errors=False):
     """
     Fetch data from an api url until it returns empty list
     api_url must have placeholder per_page=%d&page=%d
@@ -197,7 +197,7 @@ def fetch_per_page(api_url, chunk_size=100, filter_func=None):
         api_url += "?per_page=%d&page=%d"
 
     while 1:
-        buffer = fetch(api_url % (chunk_size, page))
+        buffer = fetch(api_url % (chunk_size, page), ignore_errors)
 
         if buffer:
             if filter_func:
