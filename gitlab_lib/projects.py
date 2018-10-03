@@ -81,7 +81,7 @@ def get_projects(username=None, personal=False, only_archived=False):
             filter_func = lambda x: user_involved_in_project(username, x)
 
     if only_archived:
-        api_url = GET_ARCHIVED_PROJECTS
+        api_url = GET_ARCHIVED_PROJECTS % (API_BASE_URL, )
 
     for project in fetch_per_page(api_url, chunk_size, filter_func):
         yield project
