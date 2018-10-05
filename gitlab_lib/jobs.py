@@ -44,7 +44,7 @@ def get_jobs(project, filter_func=None):
     api_url = GET_PROJECT_JOBS % (API_BASE_URL, project["id"])
 
     for job in fetch_per_page(api_url, chunk_size, filter_func):
-        yield project
+        yield job
 
 
 def delete_job(project_id, job_id):
