@@ -10,7 +10,7 @@ A collection of tools we use to manage our Gitlab CE service at the departement 
 - make-group-readonly.py script to change group member permission to reporter and set all project master branches to protected
 - quota_hook.rb implements a nagging and max quota for git repositories (see below for installation instructions)
 - restore-gitlab-project.py can restore a whole project or just a single component like all issues
-
+- update-member-permission.py script to update permissions of all members in a project or group
 
 ## Requirements
 
