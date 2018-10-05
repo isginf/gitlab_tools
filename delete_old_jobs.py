@@ -1,6 +1,26 @@
 #!/usr/bin/python3
 
 #
+# Delete artifacts and traces of ci jobs older than max-days
+#
+# Copyright 2018 ETH Zurich, ISGINF, Bastian Ballmann
+# Email: bastian.ballmann@inf.ethz.ch
+# Web: http://www.isg.inf.ethz.ch
+#
+# This is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# It is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License.
+# If not, see <http://www.gnu.org/licenses/>.
+
+#
 # Import modules
 #
 
@@ -77,7 +97,7 @@ def delete_old_jobs(queue):
         for job in gitlab_lib.get_jobs(project):
             job_date = parse(job["created_at"])
             max_date = max_date.replace(tzinfo=job_date.tzinfo)
-            
+
             gitlab_lib.debug("Checking job %d of project [%d] %s with create date %s" % (job["id"], project["id"], project["name_with_namespace"], job["created_at"]))
 
             if job_date < max_date:
